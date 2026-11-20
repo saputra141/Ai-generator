@@ -1,0 +1,3015 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KontenForge V2 — AI Foto & Video Generator (Google Flow & Free AI Video Studio)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Lucide Icons with CDN Fallback -->
+  <script src="https://unpkg.com/lucide@latest" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js'"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            forge: {
+              bg: '#070d0c',
+              panel: '#0d1715',
+              card: '#111f1c',
+              cardHover: '#162824',
+              border: '#1e3530',
+              emerald: '#10b981',
+              emeraldDark: '#059669',
+              teal: '#14b8a6',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #070d0c;
+      color: #e6f0ee;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #070d0c;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e3530;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #10b981;
+    }
+
+    .emerald-glow {
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.14);
+    }
+
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-emerald-500/30 selection:text-emerald-200">
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- Fullscreen Media Preview Modal -->
+  <div id="preview-modal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-forge-panel border border-forge-border rounded-2xl max-w-3xl w-full overflow-hidden shadow-2xl">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-forge-border">
+        <div class="flex items-center gap-2.5">
+          <span id="modal-badge" class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Google Flow Preview</span>
+          <h3 id="modal-title" class="font-semibold text-sm sm:text-base text-white truncate max-w-md">Scene Preview</h3>
+        </div>
+        <button onclick="closePreviewModal()" class="p-1.5 rounded-lg bg-forge-card hover:bg-red-500/20 text-gray-400 hover:text-red-300 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="p-4 sm:p-6 flex flex-col items-center bg-black/40">
+        <div id="modal-media-wrapper" class="relative overflow-hidden rounded-xl border border-forge-border bg-black flex items-center justify-center max-h-[62vh] w-full">
+          <video id="modal-video" src="" loop muted autoplay playsinline class="hidden w-full h-full object-contain max-h-[60vh]"></video>
+          <canvas id="modal-anim-canvas" width="1280" height="720" class="hidden w-full h-full object-contain max-h-[60vh]"></canvas>
+          <img id="modal-image" src="" alt="Preview" class="w-full h-full object-contain max-h-[60vh]" />
+          <div id="modal-subtitle-overlay" class="hidden absolute bottom-4 left-4 right-4 text-center">
+            <span class="inline-block bg-black/75 backdrop-blur-sm text-white text-xs sm:text-sm font-medium px-3.5 py-1.5 rounded-lg border border-white/10"></span>
+          </div>
+        </div>
+        <p id="modal-prompt-text" class="mt-3 text-xs text-gray-400 font-mono bg-forge-bg/90 p-3 rounded-xl border border-forge-border w-full"></p>
+      </div>
+      <div class="px-5 py-3.5 border-t border-forge-border flex flex-wrap items-center justify-between gap-3 bg-forge-bg/60">
+        <button onclick="copyModalPrompt()" class="px-3.5 py-2 rounded-xl bg-forge-card hover:bg-forge-cardHover border border-forge-border text-xs font-medium text-gray-200 flex items-center gap-2 transition">
+          <i data-lucide="copy" class="w-4 h-4 text-emerald-400"></i> Salin Prompt
+        </button>
+        <div class="flex items-center gap-2">
+          <button id="modal-download-img-btn" class="px-4 py-2 rounded-xl bg-forge-card hover:bg-forge-cardHover border border-forge-border text-xs font-semibold text-white flex items-center gap-2 transition">
+            <i data-lucide="image" class="w-4 h-4 text-teal-400"></i> Unduh Foto (PNG)
+          </button>
+          <button id="modal-download-vid-btn" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white flex items-center gap-2 transition shadow-lg shadow-emerald-900/30">
+            <i data-lucide="film" class="w-4 h-4"></i> Unduh Video Animasi
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Navigation Bar -->
+  <header class="sticky top-0 z-40 bg-forge-bg/90 backdrop-blur-lg border-b border-forge-border">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-forge-bg font-extrabold shadow-lg shadow-emerald-500/20">
+          <i data-lucide="sparkles" class="w-5 h-5 text-slate-950"></i>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-extrabold text-base sm:text-lg tracking-tight text-white">KontenForge</span>
+          <span class="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+            V2 • Google Flow Edition
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="service-log-pill" type="button" onclick="showLastServiceLog()" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/30 text-xs font-medium text-emerald-300 hover:bg-emerald-900/60 transition" title="Klik untuk melihat status & log servis API terakhir">
+          <span id="service-status-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="service-status-text">Servis: Siap</span>
+        </button>
+        <button type="button" onclick="openGoogleFlowApp()" class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-xs font-semibold text-emerald-300 transition" title="Buka Workspace Google Flow">
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          <span>Google Flow</span>
+        </button>
+        <button type="button" onclick="openStudioDrawer()" class="px-3 py-1.5 rounded-xl bg-forge-card hover:bg-forge-cardHover border border-forge-border text-xs font-medium text-gray-200 flex items-center gap-1.5 transition">
+          <i data-lucide="layers" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span>Galeri (<span id="generated-count-badge">0</span>)</span>
+        </button>
+        <button type="button" onclick="resetProject()" title="Reset Project Baru" class="p-2 rounded-xl bg-forge-card hover:bg-red-500/20 border border-forge-border text-gray-400 hover:text-red-300 transition">
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- HERO SECTION -->
+    <section class="bg-gradient-to-b from-forge-panel to-forge-bg border border-forge-border rounded-2xl p-5 sm:p-7 emerald-glow">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Mau bikin konten foto atau video apa hari ini?</h1>
+          <p class="text-xs sm:text-sm text-gray-400 mt-1">Ketik judul mentah atau pilih dari 190+ bank ide siap pakai, lalu pilih mode Foto AI atau Video Google Flow.</p>
+        </div>
+        <div class="inline-flex p-1 rounded-xl bg-forge-bg border border-forge-border self-start">
+          <button type="button" onclick="setOutputMode('video')" id="hero-mode-video" class="px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition bg-emerald-600 text-white shadow">
+            <i data-lucide="video" class="w-3.5 h-3.5"></i> Video AI (Google Flow)
+          </button>
+          <button type="button" onclick="setOutputMode('image')" id="hero-mode-image" class="px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition text-gray-400 hover:text-white">
+            <i data-lucide="image" class="w-3.5 h-3.5"></i> Foto / Gambar AI
+          </button>
+          <button type="button" onclick="setOutputMode('hybrid')" id="hero-mode-hybrid" class="px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition text-gray-400 hover:text-white">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Foto + Google Flow
+          </button>
+        </div>
+      </div>
+
+      <div class="relative">
+        <input
+          id="raw-title-input"
+          type="text"
+          value="Manusia purba pertama kali menemukan cara bikin roti"
+          placeholder="Ketik judul mentah, misal: manusia purba bikin roti"
+          class="w-full bg-forge-bg border-2 border-emerald-500/40 focus:border-emerald-400 rounded-xl px-4 py-3.5 sm:py-4 text-sm sm:text-base font-medium text-white placeholder-gray-500 focus:outline-none transition pr-24"
+        />
+        <button type="button" onclick="document.getElementById('raw-title-input').value=''; document.getElementById('raw-title-input').focus();" class="absolute right-3 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-forge-card hover:bg-forge-cardHover text-[11px] text-gray-400 hover:text-white border border-forge-border transition">
+          Hapus
+        </button>
+      </div>
+
+      <div class="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+        <div class="md:col-span-4">
+          <label class="block text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Tema judul (190 ide siap pakai)</label>
+          <select id="theme-select" onchange="refreshIdeaChips()" class="w-full bg-forge-card border border-forge-border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-400">
+            <option value="all">🎲 Semua tema (acak)</option>
+            <option value="sejarah">🏛️ Sejarah & Peradaban Dunia</option>
+            <option value="nusantara">🇮🇩 Sejarah & Legenda Nusantara</option>
+            <option value="misteri">🕵️ Misteri, Urban Legend & True Crime</option>
+            <option value="islami">🕌 Kisah Islami, Ilmuwan & Motivasi</option>
+            <option value="sains">🧬 Sains, Luar Angkasa & Fakta Unik</option>
+            <option value="stoik">🗿 Psikologi, Stoikisme & Self-Improvement</option>
+            <option value="viral3d">🍎 Drama Buah & Benda Bicara 3D (Viral)</option>
+          </select>
+        </div>
+
+        <div class="md:col-span-8">
+          <label class="block text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Klik ide cepat untuk mengisi judul:</label>
+          <div id="idea-chips-container" class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+        </div>
+      </div>
+
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-forge-border/60">
+        <div class="flex flex-wrap items-center gap-2.5">
+          <button type="button" onclick="pickRandomIdea()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-emerald-950">
+            <i data-lucide="shuffle" class="w-4 h-4"></i>
+            <span>Ide acak siap build</span>
+          </button>
+          <button id="expand-title-btn" type="button" onclick="expandTitleWithAI()" class="px-4 py-2.5 rounded-xl bg-forge-card hover:bg-forge-cardHover border border-emerald-500/40 text-emerald-300 text-xs sm:text-sm font-semibold flex items-center gap-2 transition">
+            <i data-lucide="wand-2" class="w-4 h-4"></i>
+            <span>Kembangkan judul (AI)</span>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs text-gray-400">
+          <span class="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span>Project baru • Tanpa Limit • Siap Render</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4-STEP WORKFLOW STEPPER -->
+    <nav aria-label="Workflow Steps" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <button type="button" onclick="goToStep(1)" id="step-btn-1" class="step-pill flex items-center gap-3 p-3 rounded-xl border border-emerald-500 bg-emerald-950/40 text-left transition">
+        <span class="w-7 h-7 rounded-full bg-emerald-500 text-slate-950 font-extrabold text-xs flex items-center justify-center shrink-0">1</span>
+        <div class="min-w-0">
+          <div class="text-xs sm:text-sm font-bold text-white truncate">Siapkan</div>
+          <div class="text-[11px] text-emerald-300/80 truncate">Gaya, Engine & Naskah</div>
+        </div>
+      </button>
+
+      <button type="button" onclick="goToStep(2)" id="step-btn-2" class="step-pill flex items-center gap-3 p-3 rounded-xl border border-forge-border bg-forge-panel hover:bg-forge-card text-left transition">
+        <span class="w-7 h-7 rounded-full bg-forge-card border border-forge-border text-gray-300 font-bold text-xs flex items-center justify-center shrink-0">2</span>
+        <div class="min-w-0">
+          <div class="text-xs sm:text-sm font-bold text-gray-200 truncate">Proses & Naskah</div>
+          <div class="text-[11px] text-gray-400 truncate">Script & Voiceover TTS</div>
+        </div>
+      </button>
+
+      <button type="button" onclick="goToStep(3)" id="step-btn-3" class="step-pill flex items-center gap-3 p-3 rounded-xl border border-forge-border bg-forge-panel hover:bg-forge-card text-left transition">
+        <span class="w-7 h-7 rounded-full bg-forge-card border border-forge-border text-gray-300 font-bold text-xs flex items-center justify-center shrink-0">3</span>
+        <div class="min-w-0">
+          <div class="text-xs sm:text-sm font-bold text-gray-200 truncate">Scene & Google Flow</div>
+          <div class="text-[11px] text-gray-400 truncate">Generate Video & Klip</div>
+        </div>
+      </button>
+
+      <button type="button" onclick="goToStep(4)" id="step-btn-4" class="step-pill flex items-center gap-3 p-3 rounded-xl border border-forge-border bg-forge-panel hover:bg-forge-card text-left transition">
+        <span class="w-7 h-7 rounded-full bg-forge-card border border-forge-border text-gray-300 font-bold text-xs flex items-center justify-center shrink-0">4</span>
+        <div class="min-w-0">
+          <div class="text-xs sm:text-sm font-bold text-gray-200 truncate">Render</div>
+          <div class="text-[11px] text-gray-400 truncate">Preview & Unduh Video</div>
+        </div>
+      </button>
+    </nav>
+
+    <!-- STEP 1 -->
+    <div id="step-view-1" class="space-y-6">
+      <div class="bg-forge-panel border border-forge-border rounded-2xl p-5 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-forge-border">
+          <div class="flex items-center gap-3">
+            <span class="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center justify-center">A</span>
+            <div>
+              <h2 class="text-base sm:text-lg font-bold text-white">Pilih Mesin Google Flow & AI Pembuat Video Gratis</h2>
+              <p class="text-xs text-gray-400">Buat video AI sungguhan secara gratis & otomatis atau kirim prompt langsung ke Google Flow.</p>
+            </div>
+          </div>
+          <span id="active-engine-badge" class="self-start sm:self-center px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+            Mode: Video AI • Google Flow + Free AI Video
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1.5">1. Mode Output Konten</label>
+            <select id="output-mode-select" onchange="setOutputMode(this.value)" class="w-full bg-forge-card border border-forge-border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-400">
+              <option value="video">🎬 Generate Video AI Sungguhan (Google Flow / Free AI)</option>
+              <option value="image">🖼️ Generate Foto / Ilustrasi AI (High-Res)</option>
+              <option value="hybrid">⚡ Hybrid (Ingredient Foto + Video AI Google Flow)</option>
+            </select>
+          </div>
+
+          <div id="video-engine-wrapper">
+            <label class="block text-xs font-semibold text-gray-300 mb-1.5">2. Engine Google Flow & AI Video Gratis</label>
+            <select id="video-engine-select" onchange="updateEngineBadge()" class="w-full bg-forge-card border border-forge-border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-400">
+              <option value="google-flow-free-ai">Google Flow + Free AI Video Generator (Otomatis)</option>
+              <option value="pollinations-free-video">Free AI Video Stream (AI Video Gratis)</option>
+              <option value="google-flow-veo">Google Flow (Prompt Studio + Auto Free AI Video)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1.5">3. Model Foto / Ingredient AI</label>
+            <select id="image-engine-select" onchange="updateEngineBadge()" class="w-full bg-forge-card border border-forge-border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-400">
+              <option value="gemini-3.1-flash-image">Nano Banana 2 (Gemini 3.1 Flash Image • HD & Konsisten)</option>
+              <option value="gemini-3.1-flash-lite-image">Gemini 3.1 Flash Lite Image (Cepat & Ringan)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-forge-panel border border-forge-border rounded-2xl p-5 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div class="flex items-center gap-3">
+            <span class="w-7 h-7 rounded-full bg-emerald-500 text-slate-950 font-extrabold text-xs flex items-center justify-center">1</span>
+            <div>
+              <h2 class="text-base sm:text-lg font-bold text-white">Siapkan Gaya Visual (32 Gaya Siap Pakai)</h2>
+              <p class="text-xs text-gray-400">Pilih gaya visual untuk seluruh scene agar tampilan konsisten dari awal sampai akhir.</p>
+            </div>
+          </div>
+
+          <div class="relative w-full sm:w-64">
+            <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            <input id="style-search-input" oninput="renderVisualStyles()" type="text" placeholder="Cari gaya (misal: doodle, islami)..." class="w-full bg-forge-bg border border-forge-border rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400" />
+          </div>
+        </div>
+
+        <div id="style-category-tabs" class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-3 mb-3 border-b border-forge-border/60"></div>
+        <div id="visual-styles-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[460px] overflow-y-auto pr-1"></div>
+
+        <div class="mt-5 pt-4 border-t border-forge-border/70 grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1.5">Rasio Aspek Video / Foto</label>
+            <select id="aspect-ratio-select" onchange="updateAspectRatio(this.value)" class="w-full bg-forge-card border border-forge-border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-400">
+              <option value="16:9">16:9 YouTube / Facebook Landscape</option>
+              <option value="9:16">9:16 TikTok / YouTube Shorts / Reels</option>
+              <option value="1:1">1:1 Instagram / Facebook Square</option>
+              <option value="4:5">4:5 Portrait Feed Sosial Media</option>
+            </select>
+          </div>
+          <div class="bg-forge-bg/80 border border-forge-border rounded-xl p-3 flex items-center justify-between">
+            <div>
+              <div class="text-[11px] text-gray-400">Gaya Visual Terpilih:</div>
+              <div id="selected-style-summary" class="text-xs sm:text-sm font-bold text-emerald-400 mt-0.5">Doodle Manusia Gua</div>
+            </div>
+            <span id="selected-ratio-badge" class="px-2.5 py-1 rounded-lg bg-forge-card border border-forge-border text-xs font-mono text-gray-200">16:9</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-forge-panel border border-forge-border rounded-2xl p-5 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <span class="w-7 h-7 rounded-full bg-emerald-500 text-slate-950 font-extrabold text-xs flex items-center justify-center">2</span>
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h2 class="text-base sm:text-lg font-bold text-white">Multi-Karakter Kustom Konsisten</h2>
+                <span id="char-count-badge" class="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">1 Karakter</span>
+                <span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-forge-card border border-forge-border text-gray-400">mendukung 5+ tokoh</span>
+              </div>
+              <p class="text-xs text-gray-400">Tambahkan hingga 5+ karakter kustom (upload foto atau buat wajah AI) agar konsisten & bisa dipilih di tiap scene.</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="addCharacterSlot()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition shadow">
+              <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> + Tambah Karakter
+            </button>
+            <button type="button" onclick="addPresetFiveCharacters()" class="px-3.5 py-2 rounded-xl bg-forge-card hover:bg-forge-cardHover border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition">
+              <i data-lucide="users" class="w-3.5 h-3.5"></i> + Siapkan 5 Slot Tokoh
+            </button>
+          </div>
+        </div>
+
+        <div id="characters-list-container" class="mt-4 pt-4 border-t border-forge-border/70 grid grid-cols-1 lg:grid-cols-2 gap-3.5"></div>
+      </div>
+
+      <div class="bg-forge-panel border border-forge-border rounded-2xl p-5 sm:p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-7 h-7 rounded-full bg-emerald-500 text-slate-950 font-extrabold text-xs flex items-center justify-center">3</span>
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-white">Tulis Naskah & Pecah Scene Otomatis</h2>
+            <p class="text-xs text-gray-400">Pilih gaya narasi, durasi (1 menit Shorts hingga 30 menit YouTube), lalu buat naskah otomatis.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1.5">Format konten</label>
+            <div class="grid grid-cols-2 p-1 rounded-xl bg-forge-bg border border-forge-border">
+              <button type="button" id="fmt-single-btn" onclick="setScriptFormat('single')" class="py-2 rounded-lg text-xs font-bold bg-emerald-600 text-white transition">Satu video</button>
+              <button type="button" id="fmt-series-btn" onclick="setScriptFormat('series')" class="py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition">Series bersambung</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1.5">Gaya narasi</label>
+            <select id="narration-tone-select" class="w-full bg-forge-card border border-forge-border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-400">
+              <option value="Santai ngobrol">Santai ngobrol</option>
+              <option value="Dokumenter serius">Dokumenter serius</option>
+              <option value="Misteri menegangkan">Misteri menegangkan</option>
+              <option value="Lucu / komedi">Lucu / komedi</option>
+              <option value="POV kamu">POV kamu</option>
+              <option value="Fakta cepat">Fakta cepat</option>
+              <option value="Inspiratif">Inspiratif</option>
+              <option value="Dongeng anak">Dongeng anak</option>
+              <option value="Tausiyah lembut">Tausiyah lembut</option>
+              <option value="Drama emosional (dialog)">Drama emosional (dialog)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1.5">Durasi target</label>
+            <select id="duration-select" onchange="updateDurationEstimate()" class="w-full bg-forge-card border border-forge-border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-400">
+              <option value="1">1 menit (Shorts / Reels)</option>
+              <option value="3">± 3 menit</option>
+              <option value="5" selected>± 5 menit</option>
+              <option value="8">± 8 menit</option>
+              <option value="10">± 10 menit</option>
+              <option value="15">± 15 menit</option>
+              <option value="20">± 20 menit</option>
+              <option value="30">± 30 menit</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1.5">Bahasa naskah</label>
+            <select id="language-select" class="w-full bg-forge-card border border-forge-border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-400">
+              <option value="Indonesia">Bahasa Indonesia</option>
+              <option value="English">English (Global)</option>
+              <option value="Melayu">Bahasa Melayu</option>
+              <option value="Jawa">Bahasa Jawa</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-4 border-t border-forge-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div id="duration-estimate-text" class="text-xs text-gray-400 font-mono">
+            ± 725 kata • ± 7 scene terstruktur • ± 7 klip video Google Flow
+          </div>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <button id="generate-script-btn" type="button" onclick="generateFullScriptAndScenes()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs sm:text-sm font-extrabold flex items-center gap-2 transition shadow-lg shadow-emerald-500/20">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+              <span>Tulis naskah & pecah scene</span>
+            </button>
+            <button type="button" onclick="goToStep(3)" class="px-4 py-2.5 rounded-xl bg-forge-card hover:bg-forge-cardHover border border-forge-border text-xs font-semibold text-gray-200 flex items-center gap-1.5 transition">
+              <span>Langsung ke Scene</span>
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div id="step-view-2" class="hidden space-y-6">
+      <div class="bg-forge-panel border border-forge-border rounded-2xl p-5 sm:p-6 space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-forge-border">
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-white">Editor Naskah & Voiceover AI</h2>
+            <p class="text-xs text-gray-400">Sunting naskah lengkap atau langsung generate suara narator AI otomatis.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="copyFullScript()" class="px-3.5 py-2 rounded-xl bg-forge-card hover:bg-forge-cardHover border border-forge-border text-xs font-semibold text-gray-200 flex items-center gap-1.5 transition">
+              <i data-lucide="copy" class="w-4 h-4 text-emerald-400"></i> Salin Naskah
+            </button>
+            <button type="button" onclick="goToStep(3)" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition shadow">
+              <span>Lanjut ke Scene & Google Flow</span>
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-2">Naskah Lengkap Video</label>
+          <textarea id="script-editor-textarea" rows="8" placeholder="Naskah akan muncul di sini setelah Anda klik 'Tulis naskah & pecah scene'..."
+            class="w-full bg-forge-bg border border-forge-border focus:border-emerald-400 rounded-xl p-4 text-xs sm:text-sm text-gray-100 leading-relaxed focus:outline-none"></textarea>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="bg-forge-bg border border-forge-border rounded-xl p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                <i data-lucide="mic" class="w-4 h-4"></i> Generate Voiceover AI (Gratis Otomatis)
+              </span>
+              <span class="text-[11px] text-gray-400">Gemini 2.5 TTS</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <select id="tts-voice-select" class="bg-forge-card border border-forge-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400">
+                <option value="Kore">Kore — Tegas & Berwibawa</option>
+                <option value="Puck">Puck — Energik & Santai</option>
+                <option value="Charon">Charon — Dalam & Misterius</option>
+                <option value="Zephyr">Zephyr — Cerah & Ramah</option>
+                <option value="Fenrir">Fenrir — Dramatis & Ekspresif</option>
+                <option value="Aoede">Aoede — Lembut & Tenang</option>
+              </select>
+              <input id="tts-style-instructions" type="text" placeholder="Instruksi gaya bicara (opsional)"
+                class="bg-forge-card border border-forge-border rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400" />
+            </div>
+
+            <button id="generate-tts-btn" type="button" onclick="generateTTSAudio()" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition">
+              <i data-lucide="volume-2" class="w-3.5 h-3.5"></i> <span>Buat Suara Narator AI</span>
+            </button>
+
+            <div id="audio-player-box" class="hidden pt-2">
+              <audio id="voiceover-audio-player" controls class="w-full h-9 rounded-lg"></audio>
+              <div id="audio-file-label" class="text-[11px] text-emerald-300 mt-1 truncate"></div>
+            </div>
+          </div>
+
+          <div class="bg-forge-bg border border-forge-border rounded-xl p-4 flex flex-col justify-between space-y-3">
+            <div>
+              <span class="text-xs font-bold text-teal-400 flex items-center gap-1.5">
+                <i data-lucide="upload-cloud" class="w-4 h-4"></i> Atau Upload File Voiceover Sendiri
+              </span>
+              <p class="text-[11px] text-gray-400 mt-1">Mendukung MP3, WAV, M4A hingga 30 menit untuk digabungkan ke video akhir.</p>
+            </div>
+            <label class="border-2 border-dashed border-forge-border hover:border-emerald-500/50 rounded-xl p-5 text-center cursor-pointer transition bg-forge-card/40">
+              <i data-lucide="upload" class="w-6 h-6 text-emerald-400 mx-auto mb-1.5"></i>
+              <div class="text-xs font-semibold text-gray-200">Klik untuk pilih file audio voiceover</div>
+              <div class="text-[11px] text-gray-500 mt-0.5">MP3, WAV, M4A</div>
+              <input type="file" accept="audio/*" onchange="handleAudioUpload(event)" class="hidden" />
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div id="step-view-3" class="hidden space-y-6">
+      <div class="bg-forge-panel border border-forge-border rounded-2xl p-5 sm:p-6">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-forge-border">
+          <div class="flex items-center gap-3">
+            <h2 class="text-base sm:text-lg font-bold text-white">Storyboard Scene & Google Flow Studio</h2>
+            <span id="scene-count-pill" class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold">0 Scene</span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="copyAllFlowPrompts()" class="px-3 py-2 rounded-xl bg-forge-card hover:bg-forge-cardHover border border-forge-border text-xs font-semibold text-gray-200 flex items-center gap-1.5 transition">
+              <i data-lucide="copy" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>Salin Semua Prompt Flow</span>
+            </button>
+            <button type="button" onclick="openGoogleFlowApp()" class="px-3 py-2 rounded-xl bg-forge-card hover:bg-emerald-500/20 border border-emerald-500/40 text-xs font-semibold text-emerald-300 flex items-center gap-1.5 transition">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              <span>Buka Google Flow</span>
+            </button>
+            <label class="px-3 py-2 rounded-xl bg-forge-card hover:bg-teal-500/20 border border-teal-500/40 text-xs font-semibold text-teal-300 flex items-center gap-1.5 cursor-pointer transition">
+              <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+              <span>Batch Upload MP4 Flow</span>
+              <input type="file" accept="video/*" multiple onchange="handleBatchFlowVideosUpload(event)" class="hidden" />
+            </label>
+            <button type="button" onclick="addNewBlankScene()" class="px-3 py-2 rounded-xl bg-forge-card hover:bg-forge-cardHover border border-forge-border text-xs font-semibold text-gray-200 flex items-center gap-1.5 transition">
+              <i data-lucide="plus" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>+ Scene</span>
+            </button>
+            <button id="batch-generate-btn" type="button" onclick="generateAllScenesBatch()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition shadow-lg shadow-emerald-950">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              <span id="batch-btn-label">Generate Semua Video AI</span>
+            </button>
+            <button type="button" onclick="goToStep(4)" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-extrabold flex items-center gap-1.5 transition">
+              <span>Lanjut Render</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="scenes-grid-container" class="mt-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div id="step-view-4" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-8 bg-forge-panel border border-forge-border rounded-2xl p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <h2 class="text-base sm:text-lg font-bold text-white">Preview Assembly Video Lengkap</h2>
+            </div>
+            <span id="assembly-progress-label" class="px-2.5 py-1 rounded-lg bg-forge-bg border border-forge-border text-xs font-mono text-emerald-300">Scene 1 / 1</span>
+          </div>
+
+          <div class="relative bg-black rounded-xl border border-forge-border overflow-hidden flex items-center justify-center">
+            <canvas id="render-preview-canvas" width="1280" height="720" class="w-full max-h-[58vh] object-contain"></canvas>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <div class="flex items-center gap-2">
+              <button id="play-assembly-btn" type="button" onclick="togglePlayAssembly()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition">
+                <i data-lucide="play" class="w-4 h-4"></i>
+                <span>Putar Preview</span>
+              </button>
+              <button type="button" onclick="stopAssembly()" class="px-3.5 py-2 rounded-xl bg-forge-card hover:bg-forge-cardHover border border-forge-border text-xs font-semibold text-gray-200 flex items-center gap-1.5 transition">
+                <i data-lucide="square" class="w-3.5 h-3.5 text-red-400"></i>
+                <span>Stop</span>
+              </button>
+            </div>
+
+            <label class="flex items-center gap-2 text-xs text-gray-300 cursor-pointer select-none">
+              <input id="toggle-subtitles-chk" type="checkbox" checked onchange="drawAssemblyFrame(0, 0.2)" class="rounded border-forge-border bg-forge-bg text-emerald-500 focus:ring-emerald-500" />
+              <span>Tampilkan Subtitle Otomatis</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="lg:col-span-4 bg-forge-panel border border-forge-border rounded-2xl p-5 flex flex-col justify-between space-y-5">
+          <div class="space-y-4">
+            <h3 class="text-base font-bold text-white border-b border-forge-border pb-3">Ringkasan Proyek & Ekspor</h3>
+
+            <div class="space-y-2.5 text-xs">
+              <div class="flex items-center justify-between py-1.5 border-b border-forge-border/50">
+                <span class="text-gray-400">Gaya Visual</span>
+                <span id="summary-style-name" class="font-semibold text-white">Doodle Manusia Gua</span>
+              </div>
+              <div class="flex items-center justify-between py-1.5 border-b border-forge-border/50">
+                <span class="text-gray-400">Engine Video</span>
+                <span id="summary-engine-name" class="font-semibold text-emerald-300">Google Flow + Free AI Video</span>
+              </div>
+              <div class="flex items-center justify-between py-1.5 border-b border-forge-border/50">
+                <span class="text-gray-400">Resolusi & Rasio</span>
+                <span id="summary-ratio-name" class="font-semibold text-white">16:9 HD</span>
+              </div>
+              <div class="flex items-center justify-between py-1.5 border-b border-forge-border/50">
+                <span class="text-gray-400">Visual Siap</span>
+                <span id="summary-scenes-ready" class="font-semibold text-teal-300">0 / 0 Scene</span>
+              </div>
+              <div class="flex items-center justify-between py-1.5">
+                <span class="text-gray-400">Voiceover Audio</span>
+                <span id="summary-audio-status" class="font-semibold text-gray-200 truncate max-w-[160px]">Belum ada audio</span>
+              </div>
+            </div>
+
+            <div id="render-progress-wrapper" class="hidden bg-forge-bg border border-forge-border rounded-xl p-3.5 space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span id="render-status-text" class="text-emerald-300 font-medium">Menyiapkan render...</span>
+                <span id="render-percent-text" class="font-mono font-bold text-white">0%</span>
+              </div>
+              <div class="w-full h-2 bg-forge-card rounded-full overflow-hidden">
+                <div id="render-progress-bar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-150" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-2.5 pt-3 border-t border-forge-border">
+            <button id="render-final-video-btn" type="button" onclick="renderFinalVideoFile()" class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition shadow-lg shadow-emerald-500/20">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              <span>Render & Unduh Video Lengkap</span>
+            </button>
+            <button type="button" onclick="exportProjectJSON()" class="w-full py-2.5 rounded-xl bg-forge-card hover:bg-forge-cardHover border border-forge-border text-xs font-semibold text-gray-200 flex items-center justify-center gap-1.5 transition">
+              <i data-lucide="copy" class="w-3.5 h-3.5 text-teal-400"></i>
+              <span>Ekspor Naskah & Prompt (.JSON)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Galeri Hasil Drawer -->
+  <div id="studio-drawer" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex justify-end">
+    <div class="bg-forge-panel border-l border-forge-border w-full max-w-md h-full flex flex-col">
+      <div class="px-5 py-4 border-b border-forge-border flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="folder-kanban" class="w-5 h-5 text-emerald-400"></i>
+          <h3 class="font-bold text-white text-sm sm:text-base">Galeri Foto & Video AI Dihasilkan</h3>
+        </div>
+        <button onclick="closeStudioDrawer()" class="p-1.5 rounded-lg bg-forge-card hover:bg-red-500/20 text-gray-400 hover:text-red-300 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="drawer-gallery-list" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+    </div>
+  </div>
+
+  <script>
+    (function ensureLucideSafe() {
+      const FALLBACK_PATHS = {
+        'sparkles': '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
+        'video': '<path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
+        'image': '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
+        'layers': '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+        'rotate-ccw': '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+        'shuffle': '<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/>',
+        'wand-2': '<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/>',
+        'search': '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+        'check-circle-2': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+        'alert-circle': '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+        'info': '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+        'x': '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+        'copy': '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+        'film': '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/>',
+        'play': '<polygon points="6 3 20 12 6 21 6 3"/>',
+        'pause': '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
+        'square': '<rect width="18" height="18" x="3" y="3" rx="2"/>',
+        'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+        'upload': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+        'upload-cloud': '<path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/>',
+        'mic': '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
+        'volume-2': '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
+        'plus': '<path d="M5 12h14"/><path d="M12 5v14"/>',
+        'trash-2': '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
+        'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+        'maximize-2': '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" x2="14" y1="3" y2="10"/><line x1="3" x2="10" y1="21" y2="14"/>',
+        'user': '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+        'user-plus': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>',
+        'users': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        'loader-2': '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
+        'external-link': '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'
+      };
+
+      function renderFallbackIcons() {
+        document.querySelectorAll('[data-lucide]').forEach(el => {
+          const name = el.getAttribute('data-lucide') || 'sparkles';
+          const cls = el.getAttribute('class') || 'w-4 h-4';
+          const style = el.getAttribute('style') || '';
+          const inner = FALLBACK_PATHS[name] || '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>';
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('viewBox', '0 0 24 24');
+          svg.setAttribute('fill', 'none');
+          svg.setAttribute('stroke', 'currentColor');
+          svg.setAttribute('stroke-width', '2');
+          svg.setAttribute('stroke-linecap', 'round');
+          svg.setAttribute('stroke-linejoin', 'round');
+          svg.setAttribute('class', cls);
+          if (style) svg.setAttribute('style', style);
+          svg.innerHTML = inner;
+          el.replaceWith(svg);
+        });
+      }
+
+      if (typeof window.lucide === 'undefined') {
+        window.lucide = { createIcons: renderFallbackIcons };
+      }
+    })();
+
+    const apiKey = "";
+
+    async function fetchWithBackoff(url, options, maxRetries = 3) {
+      let delay = 1000;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await fetch(url, options);
+          if (!response.ok) {
+            if ((response.status === 429 || response.status >= 500) && attempt < maxRetries) {
+              await new Promise(res => setTimeout(res, delay));
+              delay *= 2;
+              continue;
+            }
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData?.error?.message || `HTTP Error ${response.status}`);
+          }
+          return await response.json();
+        } catch (err) {
+          if (attempt === maxRetries) throw err;
+          await new Promise(res => setTimeout(res, delay));
+          delay *= 2;
+        }
+      }
+    }
+
+    async function generateTextWithFallback(payload) {
+      const textModels = ['gemini-3-flash-preview', 'gemini-2.5-flash'];
+      let lastErr = null;
+      for (const model of textModels) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+          return await fetchWithBackoff(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          }, 2);
+        } catch (err) {
+          lastErr = err;
+          if (!/not found|not supported|404|400/i.test(err.message)) {
+            throw err;
+          }
+        }
+      }
+      throw lastErr || new Error('Gagal terhubung ke model teks AI.');
+    }
+
+    function buildImageGenerationPayload(parts, selectedModel, aspectRatio) {
+      const hasReferenceImage = parts.some(p => p.inlineData);
+      const effectiveModel = hasReferenceImage ? 'gemini-3.1-flash-image' : selectedModel;
+
+      if (effectiveModel === 'gemini-3.1-flash-lite-image') {
+        return {
+          model: effectiveModel,
+          payload: {
+            contents: [{ parts }],
+            generationConfig: {
+              responseModalities: ['TEXT', 'IMAGE']
+            }
+          }
+        };
+      }
+
+      return {
+        model: effectiveModel,
+        payload: {
+          contents: [{ role: 'user', parts }],
+          generationConfig: {
+            responseModalities: ['IMAGE'],
+            imageConfig: { aspectRatio }
+          }
+        }
+      };
+    }
+
+    async function generateImageUniversal(promptText, aspectRatio, referenceImages = null, preferredModel = 'gemini-3.1-flash-image') {
+      const parts = [{ text: promptText }];
+      const refsArray = Array.isArray(referenceImages)
+        ? referenceImages
+        : (referenceImages && referenceImages.base64 ? [referenceImages] : []);
+
+      for (const ref of refsArray) {
+        if (ref && ref.base64) {
+          parts.push({
+            inlineData: {
+              mimeType: ref.mimeType || 'image/png',
+              data: ref.base64
+            }
+          });
+        }
+      }
+
+      const candidateModels = preferredModel === 'gemini-3.1-flash-lite-image' && refsArray.length === 0
+        ? ['gemini-3.1-flash-lite-image', 'gemini-3.1-flash-image']
+        : ['gemini-3.1-flash-image', 'gemini-3.1-flash-lite-image'];
+
+      let lastErr = null;
+      for (const model of candidateModels) {
+        try {
+          const { model: effectiveModel, payload } = buildImageGenerationPayload(parts, model, aspectRatio);
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${effectiveModel}:generateContent?key=${apiKey}`;
+          const res = await fetchWithBackoff(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          }, 2);
+
+          const imgPart = res?.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+          if (imgPart && imgPart.inlineData?.data) {
+            const mime = imgPart.inlineData.mimeType || 'image/png';
+            return {
+              base64: imgPart.inlineData.data,
+              mimeType: mime,
+              dataUrl: `data:${mime};base64,${imgPart.inlineData.data}`
+            };
+          }
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+
+      throw lastErr || new Error('Server AI tidak mengembalikan gambar.');
+    }
+
+    function getSupportedRecorderMimeType() {
+      if (typeof MediaRecorder === 'undefined') return '';
+      const candidates = [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm',
+        'video/mp4'
+      ];
+      for (const mime of candidates) {
+        if (MediaRecorder.isTypeSupported(mime)) return mime;
+      }
+      return '';
+    }
+
+    const IDEA_BANK = {
+      sejarah: [
+        "Manusia purba pertama kali menemukan cara bikin roti",
+        "Perjalanan Laksamana Cheng Ho ke Nusantara dengan armada raksasa",
+        "Kenapa Perpustakaan Alexandria bisa musnah dan apa yang hilang?",
+        "Rahasia pembangunan Piramida Giza tanpa teknologi modern",
+        "Bagaimana kopi ditemukan oleh penggembala kambing di Ethiopia",
+        "Kisah kota Pompeii yang membeku dalam waktu akibat letusan Vesuvius"
+      ],
+      nusantara: [
+        "Kisah Gajah Mada dan Sumpah Palapa menyatukan Nusantara",
+        "Kronologi runtuhnya Kerajaan Majapahit dari dalam",
+        "Misteri hilangnya Prabu Siliwangi dan Kerajaan Pajajaran",
+        "Legenda Malin Kundang: Pesan moral di balik batu pantai Air Manis",
+        "Sejarah jalur rempah Maluku yang diperebutkan bangsa Eropa",
+        "Kisah heroik Cut Nyak Dien melawan penjajah di tanah Aceh"
+      ],
+      misteri: [
+        "Misteri kapal hantu Mary Celeste yang ditemukan tanpa awak",
+        "Fenomena Segitiga Bermuda: Fakta ilmiah vs mitos pelaut",
+        "Kasus hilangnya pesawat di pegunungan Andes yang menggemparkan",
+        "Suara misterius 'The Bloop' dari dasar Samudra Pasifik",
+        "Kota bawah tanah Derinkuyu yang mampu menampung 20.000 orang",
+        "Rahasia sinyal radio 'Wow!' dari luar angkasa tahun 1977"
+      ],
+      islami: [
+        "Ibnu Sina: Bapak Kedokteran Modern yang bukunya dipakai 600 tahun",
+        "Al-Khawarizmi: Penemu Algoritma dan Aljabar dari Baghdad",
+        "Kisah Uwais Al-Qarni: Pemuda yang terkenal di langit karena baktinya",
+        "Sejarah Masjidil Aqsa dan kejayaan ilmu pengetahuan di Andalusia",
+        "Doa dan ketenangan hati saat menghadapi ujian hidup terberat",
+        "Perjalanan Wali Songo menyebarkan Islam lewat budaya dan wayang"
+      ],
+      sains: [
+        "Apa yang terjadi pada tubuh jika manusia tidak tidur selama 7 hari?",
+        "Kenapa langit berwarna biru tapi saat senja berubah jadi jingga?",
+        "Seberapa dalam Palung Mariana dan makhluk aneh apa yang hidup di sana?",
+        "Bagaimana cara kerja lubang hitam (Black Hole) melengkungkan waktu?",
+        "Fakta mengejutkan: Pohon ternyata bisa saling berkomunikasi di bawah tanah",
+        "Apa yang terjadi jika bulan tiba-tiba menghilang dari orbit bumi?"
+      ],
+      stoik: [
+        "Filosofi Stoik Marcus Aurelius: Cara tetap tenang saat dihina orang",
+        "Kenapa overthinking menghancurkan energimu dan cara menghentikannya",
+        "Aturan 5 detik yang mengubah kebiasaan menunda-nunda pekerjaan",
+        "Psikologi efek Dunning-Kruger: Kenapa orang pintar sering meragukan diri",
+        "Seni masa bodoh yang elegan ala filsuf Epictetus",
+        "Kebiasaan pagi 15 menit yang membuat mental sekuat baja"
+      ],
+      viral3d: [
+        "Curhat si Apel yang selalu dibanding-bandingkan dengan Jeruk",
+        "Drama kulkas tengah malam: Si Susu Basi dan Keju Tua bertengkar",
+        "Keluh kesah HP yang baterainya tinggal 1% tapi masih dipakai main game",
+        "Wawancara eksklusif Kopi Hitam dan Gula Pasir di dalam cangkir",
+        "Curhat Sandal Jepit yang sering tertukar di depan masjid",
+        "Drama Nasi Padang vs Burger tentang siapa makanan paling bikin kenyang"
+      ]
+    };
+
+    const STYLE_CATEGORIES = [
+      "Semua", "2D Doodle", "3D", "2D Ilustrasi", "Anak", "Misteri", "Anime",
+      "Realis", "Lokal", "Islami", "Tanpa Wajah", "Viral", "Tenang", "Edukasi"
+    ];
+
+    const VISUAL_STYLES = [
+      { id: "doodle-gua", name: "Doodle Manusia Gua", desc: "Sejarah penemuan: 'How did humans invent bread?'. Gaya channel Neon Rush.", cats: ["2D Doodle", "Edukasi"], color: "#f59e0b", icon: "pen-tool", promptMod: "2D hand-drawn doodle explainer animation style on warm parchment background, expressive cave-man cartoon line art, bold outlines, educational YouTube style like Neon Rush" },
+      { id: "stickman-putih", name: "Stickman Putih", desc: "Explainer kehidupan sehari-hari, psikologi, fakta unik.", cats: ["2D Doodle", "Edukasi", "Viral"], color: "#e2e8f0", icon: "smile", promptMod: "Minimalist clean white background 2D stickman explainer illustration, expressive black ink stick figure character with subtle cyan and amber accent props, crisp vector look" },
+      { id: "kisah-kitab-3d", name: "Kisah Kitab 3D", desc: "Sejarah & peradaban kuno (Mesir, Babilonia, Romawi) gaya film animasi 3D.", cats: ["3D", "Islami"], color: "#eab308", icon: "landmark", promptMod: "Epic 3D animated film style depicting ancient civilizations, golden desert sunlight, monumental stone temples, volumetric dust rays, Unreal Engine 5 cinematic render" },
+      { id: "sejarah-kartun-flat", name: "Sejarah Kartun Flat", desc: "Sejarah perang, kerajaan, tokoh dunia. Ilustrasi flat modern.", cats: ["2D Ilustrasi", "Edukasi"], color: "#38bdf8", icon: "flag", promptMod: "Modern flat vector historical illustration, rich textured shading, dramatic composition of kingdoms and historical leaders, clean geometric shapes" },
+      { id: "kartun-anak-ceria", name: "Kartun Anak Ceria", desc: "Dongeng & edukasi anak berbahasa Indonesia.", cats: ["Anak", "2D Ilustrasi"], color: "#4ade80", icon: "sun", promptMod: "Bright cheerful 2D children's storybook cartoon illustration, vibrant pastel colors, friendly cute characters, soft rounded shapes, joyful atmosphere" },
+      { id: "misteri-gelap", name: "Misteri Gelap", desc: "Cerita misteri, urban legend, true crime ringan.", cats: ["Misteri", "Realis"], color: "#a855f7", icon: "eye", promptMod: "Moody dark mystery thriller aesthetic, foggy midnight atmosphere, dramatic chiaroscuro rim lighting, eerie shadows, cinematic suspense" },
+      { id: "sains-flat-neon", name: "Sains Flat Neon", desc: "Sains, luar angkasa, tubuh manusia. Gaya explainer sains populer, warna terang.", cats: ["2D Ilustrasi", "Edukasi"], color: "#22d3ee", icon: "atom", promptMod: "Vibrant neon science explainer vector art on deep indigo space background, glowing cyan and magenta diagrams, Kurzgesagt inspired modern flat illustration" },
+      { id: "anime-lukis-lembut", name: "Anime Lukis Lembut", desc: "Kisah emosional, motivasi, cerita kehidupan. Latar lukisan cat air ala anime.", cats: ["Anime", "Tenang"], color: "#f472b6", icon: "sparkles", promptMod: "Emotional Makoto Shinkai inspired soft painted anime scenery, glowing golden hour clouds, delicate watercolor sky reflections, heartfelt storytelling" },
+      { id: "anime-sinematik-aksi", name: "Anime Sinematik Aksi", desc: "Sejarah perang, legenda, tokoh kuat. Gaya tajam, kontras tinggi.", cats: ["Anime", "Viral"], color: "#ef4444", icon: "sword", promptMod: "High-contrast cinematic action anime keyframe, sharp dynamic linework, dramatic speed lines, intense lighting and embers, epic warrior framing" },
+      { id: "3d-clay-lucu", name: "3D Clay Lucu", desc: "Edukasi ringan, resep, tips harian. Tokoh seperti mainan plastisin.", cats: ["3D", "Anak", "Edukasi"], color: "#fb923c", icon: "shapes", promptMod: "Adorable 3D claymation stop-motion style, tactile plasticine fingerprint textures, soft studio miniature lighting, charming chubby characters" },
+      { id: "3d-kartun-pixar", name: "3D Kartun Pixar-like", desc: "Dongeng, cerita hewan, kisah lucu. Gaya film animasi 3D keluarga.", cats: ["3D", "Anak"], color: "#60a5fa", icon: "film", promptMod: "High-end Pixar and Disney inspired 3D feature animation style, expressive subsurface scattering skin, warm cinematic bokeh, heartwarming storytelling" },
+      { id: "mainan-balok-plastik", name: "Mainan Balok Plastik", desc: "Sejarah perang & peristiwa besar versi mainan balok (sedang viral di Shorts).", cats: ["3D", "Viral"], color: "#facc15", icon: "box", promptMod: "Macro photography of glossy plastic interlocking brick toy figures reenacting epic history, tilt-shift depth of field, studio lighting" },
+      { id: "dokumenter-sinematik", name: "Dokumenter Sinematik", desc: "Sejarah, true story, biografi. Seperti foto film dokumenter.", cats: ["Realis", "Edukasi"], color: "#94a3b8", icon: "camera", promptMod: "Photorealistic historical documentary film still, 35mm anamorphic lens, natural film grain, authentic period costumes and architecture, dramatic lighting" },
+      { id: "lukisan-minyak-klasik", name: "Lukisan Minyak Klasik", desc: "Mitologi, kerajaan kuno, sejarah Eropa. Seperti lukisan museum.", cats: ["2D Ilustrasi", "Edukasi"], color: "#d97706", icon: "palette", promptMod: "Classical Renaissance oil painting masterpiece on canvas, visible brushwork, dramatic Rembrandt chiaroscuro lighting, museum fine art aesthetic" },
+      { id: "cerita-rakyat-nusantara", name: "Cerita Rakyat Nusantara", desc: "Legenda & cerita rakyat Indonesia (Malin Kundang, Timun Mas). Nuansa batik & wayang.", cats: ["Lokal", "2D Ilustrasi"], color: "#10b981", icon: "crown", promptMod: "Indonesian folklore digital painting with subtle traditional Batik and Wayang gold leaf motifs, lush tropical archipelago scenery, rich cultural heritage" },
+      { id: "kolase-kertas", name: "Kolase Kertas", desc: "Psikologi, motivasi, fakta unik. Potongan kertas berlapis ala video essay.", cats: ["2D Ilustrasi", "Edukasi", "Viral"], color: "#f97316", icon: "scissors", promptMod: "Tactile layered paper cutout collage art style, halftone newspaper textures, drop shadows between paper layers, modern Vox video essay visual aesthetic" },
+      { id: "cahaya-ornamen-islami", name: "Cahaya & Ornamen Islami", desc: "Doa hadits, dan motivasi. Tanpa orang, hanya lentera, masjid, dan pola geometris.", cats: ["Islami", "Tanpa Wajah", "Tenang"], color: "#34d399", icon: "moon", promptMod: "Serene Islamic spiritual aesthetic without human figures, glowing brass Moroccan lanterns, intricate geometric arabesque patterns, peaceful mosque courtyard at dawn" },
+      { id: "sejarah-islam-ilustrasi", name: "Sejarah Islam Ilustrasi", desc: "Peradaban Islam, ilmuwan Muslim, dan Wali Songo gaya ilustrasi buku sejarah.", cats: ["Islami", "2D Ilustrasi"], color: "#14b8a6", icon: "book-open", promptMod: "Golden Age of Islam historical storybook illustration, grand libraries of Baghdad, astrolabes and scrolls, warm emerald and gold palette" },
+      { id: "karakter-tanpa-wajah", name: "Karakter Tanpa Wajah", desc: "Psikologi, self improvement, dan cerita harian. Orang bersih tanpa wajah.", cats: ["Tanpa Wajah", "2D Ilustrasi", "Edukasi"], color: "#818cf8", icon: "user-check", promptMod: "Clean modern editorial vector illustration featuring faceless minimalist human silhouettes, calm pastel-slate palette, psychological self-improvement aesthetic" },
+      { id: "siluet-sinematik", name: "Siluet Sinematik", desc: "Kisah nyata, misteri ringan, dan cerita haru. Tokoh tertutup bayangan.", cats: ["Tanpa Wajah", "Misteri"], color: "#64748b", icon: "contrast", promptMod: "Dramatic backlit silhouette photography style, glowing horizon rim light, atmospheric mist, poetic and mysterious visual storytelling" },
+      { id: "patung-stoik", name: "Patung Stoik", desc: "Stoik, filsafat, dan mental kuat. Patung marmer di latar gelap.", cats: ["3D", "Tanpa Wajah", "Viral"], color: "#cbd5e1", icon: "shield", promptMod: "Classical Greco-Roman white marble bust sculpture in dramatic moody dark studio lighting, subtle gold cracks kintsugi, stoic philosophy aesthetic" },
+      { id: "drama-buah-3d", name: "Drama Buah 3D", desc: "Sinetron buah bicara yang lagi ramai di TikTok dan Reels. Lucu dan ramah keluarga.", cats: ["3D", "Viral", "Anak"], color: "#fb7185", icon: "cherry", promptMod: "Viral 3D anthropomorphic cute talking fruits with expressive cartoon eyes and tiny arms in a cozy kitchen setting, vibrant Pixar-like macro render" },
+      { id: "benda-bicara-3d", name: "Benda Bicara 3D", desc: "Benda sehari-hari yang curhat dan menyindir. Format pendek yang mudah viral.", cats: ["3D", "Viral"], color: "#38bdf8", icon: "message-circle", promptMod: "Humorous 3D anthropomorphic everyday household objects with expressive faces and hands, lively macro studio lighting, viral Reels comedy style" },
+      { id: "malam-tenang", name: "Malam Tenang", desc: "Cerita pengantar tidur dan relaksasi. Durasi panjang, tempo pelan.", cats: ["Tenang", "2D Ilustrasi"], color: "#6366f1", icon: "cloud-moon", promptMod: "Cozy lofi midnight relaxation illustration, gentle rain on window, warm bedside lamp glow, starry indigo night sky, soothing peaceful mood" },
+      { id: "video-essay-kolase", name: "Video Essay Kolase", desc: "Penjelasan ekonomi, bisnis, dan fenomena sosial.", cats: ["Edukasi", "Viral"], color: "#10b981", icon: "trending-up", promptMod: "High-retention YouTube documentary video essay collage, vintage financial charts, dramatic spotlight on cut-out photography, crisp red and emerald accents" },
+      { id: "infografis-gelap-3d", name: "Infografis Gelap 3D", desc: "Uang, penipuan online, dan edukasi finansial 3D.", cats: ["3D", "Edukasi"], color: "#2dd4bf", icon: "bar-chart-3", promptMod: "Sleek dark-mode 3D isometric financial infographic scene, glowing emerald glass icons, minimalist dark slate grid background, clean modern tech render" },
+      { id: "foto-tempo-dulu", name: "Foto Tempo Dulu", desc: "Indonesia tempo dulu serta berita lama bersejarah.", cats: ["Lokal", "Realis"], color: "#d6d3d1", icon: "archive", promptMod: "Authentic vintage 1940s sepia archival photograph of historic Indonesia, natural silver gelatin film grain, nostalgic historical realism" },
+      { id: "cyberpunk-futuristik", name: "Cyberpunk Futuristik", desc: "Teknologi AI, masa depan, dan sci-fi neon.", cats: ["3D", "Viral"], color: "#c084fc", icon: "cpu", promptMod: "Futuristic cyberpunk metropolis with holographic neon signs, rain-slicked reflections, high-tech sci-fi cinematic atmosphere" },
+      { id: "komik-manga-bw", name: "Komik Manga Hitam Putih", desc: "Cerita dramatis ala panel komik Jepang.", cats: ["Anime", "Misteri"], color: "#f8fafc", icon: "book", promptMod: "Detailed Japanese manga ink illustration, dramatic screentone shading, dynamic manga panel framing, crisp black and white contrast" },
+      { id: "miniatur-tilt-shift", name: "Miniatur Tilt-Shift", desc: "Dunia terlihat seperti maket mainan kecil yang hidup.", cats: ["3D", "Realis"], color: "#34d399", icon: "focus", promptMod: "Tilt-shift miniature diorama photography, shallow depth of field making real world scenes look like tiny handcrafted scale models" },
+      { id: "cat-air-dongeng", name: "Cat Air Dongeng", desc: "Ilustrasi buku cerita klasik lembut dan hangat.", cats: ["Anak", "Tenang", "2D Ilustrasi"], color: "#fda4af", icon: "feather", promptMod: "Delicate hand-painted watercolor fairytale book illustration on textured cold-press paper, soft organic color bleeds, whimsical warmth" },
+      { id: "dark-fantasy-epik", name: "Dark Fantasy Epik", desc: "Mitologi kuno, naga, dan kisah kepahlawanan megah.", cats: ["3D", "Misteri"], color: "#f43f5e", icon: "flame", promptMod: "Epic dark fantasy concept art, towering ancient ruins, dramatic storm clouds with golden sunbeams, cinematic scale" }
+    ];
+
+    const appState = {
+      currentStep: 1,
+      outputMode: 'video',
+      videoEngine: 'google-flow-free-ai',
+      imageEngine: 'gemini-3.1-flash-image',
+      selectedStyleId: 'doodle-gua',
+      styleCategory: 'Semua',
+      aspectRatio: '16:9',
+      characters: [
+        {
+          id: 'char-1',
+          name: '',
+          role: '',
+          imageUrl: null,
+          base64: null,
+          mimeType: 'image/png',
+          isGenerating: false
+        }
+      ],
+      lastServiceLog: {
+        status: 'ready',
+        service: 'Sistem Siap',
+        message: 'Layanan AI otomatis siap digunakan tanpa perlu API Key.',
+        timestamp: new Date().toLocaleTimeString('id-ID')
+      },
+      scriptFormat: 'single',
+      scriptText: '',
+      scenes: [],
+      audio: {
+        url: null,
+        fileName: null
+      },
+      isPlayingAssembly: false,
+      assemblyRafId: null,
+      assemblyStartTime: 0,
+      sceneCardsRafId: null,
+      modalRafId: null,
+      modalSceneIndex: null
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderStyleCategories();
+      renderVisualStyles();
+      renderCharactersList();
+      refreshIdeaChips();
+      updateDurationEstimate();
+      updateEngineBadge();
+      lucide.createIcons();
+    });
+
+    function recordServiceStatus(status, service, message) {
+      appState.lastServiceLog = {
+        status,
+        service,
+        message,
+        timestamp: new Date().toLocaleTimeString('id-ID')
+      };
+
+      const pill = document.getElementById('service-log-pill');
+      const dot = document.getElementById('service-status-dot');
+      const text = document.getElementById('service-status-text');
+      if (!pill || !dot || !text) return;
+
+      if (status === 'error') {
+        pill.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-950/90 border border-red-500/50 text-xs font-semibold text-red-200 hover:bg-red-900/70 transition';
+        dot.className = 'w-2 h-2 rounded-full bg-red-400';
+        text.textContent = 'Servis Gagal (Cek Log)';
+      } else if (status === 'loading') {
+        pill.className = 'hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-950/80 border border-amber-500/40 text-xs font-medium text-amber-200 hover:bg-amber-900/60 transition';
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
+        text.textContent = `${service}...`;
+      } else {
+        pill.className = 'hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/30 text-xs font-medium text-emerald-300 hover:bg-emerald-900/60 transition';
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        text.textContent = 'Servis: Siap';
+      }
+    }
+
+    function showLastServiceLog() {
+      const log = appState.lastServiceLog;
+      const type = log.status === 'error' ? 'error' : 'info';
+      showToast(`[${log.timestamp}] ${log.service}: ${log.message}`, type);
+    }
+
+    function safeCopyText(text, successMsg = 'Teks berhasil disalin ke clipboard!') {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        showToast(successMsg, 'success');
+      } catch (e) {
+        showToast('Gagal menyalin teks.', 'error');
+      }
+      document.body.removeChild(textarea);
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+
+      const styles = {
+        success: 'bg-emerald-950/95 border-emerald-500/50 text-emerald-100',
+        error: 'bg-red-950/95 border-red-500/50 text-red-100',
+        info: 'bg-forge-panel/95 border-teal-500/40 text-gray-100'
+      };
+      const icons = {
+        success: 'check-circle-2',
+        error: 'alert-circle',
+        info: 'info'
+      };
+      const iconColors = {
+        success: 'text-emerald-400',
+        error: 'text-red-400',
+        info: 'text-teal-400'
+      };
+
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto flex items-start gap-2.5 px-4 py-3 rounded-xl border shadow-2xl backdrop-blur-md text-xs leading-relaxed transition-all duration-300 ${styles[type] || styles.info}`;
+      toast.innerHTML = `
+        <i data-lucide="${icons[type] || icons.info}" class="w-4 h-4 shrink-0 mt-0.5 ${iconColors[type] || iconColors.info}"></i>
+        <span class="flex-1 break-words">${message}</span>
+        <button type="button" onclick="this.parentElement.remove()" class="text-gray-400 hover:text-white shrink-0">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+      `;
+
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      if (type !== 'error') {
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(6px)';
+          setTimeout(() => toast.remove(), 300);
+        }, 4500);
+      }
+    }
+
+    function getSanitizedVideoTitle(fallback = 'Video_KontenForge') {
+      const raw = document.getElementById('raw-title-input')?.value?.trim() || '';
+      const cleaned = raw
+        .replace(/[\\/:*?"<>|]+/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 80);
+      return cleaned || fallback;
+    }
+
+    function downloadDataUrl(url, filename) {
+      if (!url) return;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || `${getSanitizedVideoTitle()}.webm`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast(`Mengunduh ${filename}...`, 'success');
+    }
+
+    function copyModalPrompt() {
+      const promptEl = document.getElementById('modal-prompt-text');
+      if (!promptEl || !promptEl.textContent.trim()) return;
+      safeCopyText(promptEl.textContent, 'Prompt scene berhasil disalin!');
+    }
+
+    function setOutputMode(mode) {
+      appState.outputMode = mode;
+      const selectEl = document.getElementById('output-mode-select');
+      if (selectEl && selectEl.value !== mode) {
+        selectEl.value = mode;
+      }
+
+      ['video', 'image', 'hybrid'].forEach(m => {
+        const btn = document.getElementById(`hero-mode-${m}`);
+        if (!btn) return;
+        if (m === mode) {
+          btn.className = 'px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition bg-emerald-600 text-white shadow';
+        } else {
+          btn.className = 'px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition text-gray-400 hover:text-white';
+        }
+      });
+
+      const videoWrap = document.getElementById('video-engine-wrapper');
+      if (videoWrap) {
+        videoWrap.style.opacity = mode === 'image' ? '0.5' : '1';
+      }
+
+      updateEngineBadge();
+      if (appState.currentStep === 3) {
+        renderScenesGrid();
+      }
+    }
+
+    function updateEngineBadge() {
+      const vidSel = document.getElementById('video-engine-select');
+      const imgSel = document.getElementById('image-engine-select');
+      if (vidSel) appState.videoEngine = vidSel.value;
+      if (imgSel) appState.imageEngine = imgSel.value;
+
+      const imgLabels = {
+        'gemini-3.1-flash-image': 'Nano Banana 2',
+        'gemini-3.1-flash-lite-image': 'Gemini Flash Lite'
+      };
+      const vidEngineLabels = {
+        'google-flow-free-ai': 'Google Flow + Free AI Video',
+        'pollinations-free-video': 'Free AI Video Generator',
+        'google-flow-veo': 'Google Flow Studio'
+      };
+      const activeVidLabel = vidEngineLabels[appState.videoEngine] || 'Google Flow & Free AI Video';
+
+      const badge = document.getElementById('active-engine-badge');
+      const batchLabel = document.getElementById('batch-btn-label');
+
+      if (appState.outputMode === 'video') {
+        if (badge) badge.textContent = `Mode: Video AI • ${activeVidLabel}`;
+        if (batchLabel) batchLabel.textContent = `Generate Semua Video AI (${activeVidLabel})`;
+      } else if (appState.outputMode === 'image') {
+        if (badge) badge.textContent = `Mode: Foto AI • ${imgLabels[appState.imageEngine] || 'Nano Banana 2'}`;
+        if (batchLabel) batchLabel.textContent = `Generate Semua Foto AI (${imgLabels[appState.imageEngine] || 'HD'})`;
+      } else {
+        if (badge) badge.textContent = `Hybrid • ${imgLabels[appState.imageEngine]} + ${activeVidLabel}`;
+        if (batchLabel) batchLabel.textContent = 'Generate Ingredient & Video AI (Google Flow)';
+      }
+    }
+
+    function buildGoogleFlowPrompt(scene) {
+      const styleObj = VISUAL_STYLES.find(s => s.id === appState.selectedStyleId) || VISUAL_STYLES[0];
+      const activeChars = getActiveCharactersList();
+      const assignedChars = Array.isArray(scene.characterIds) && scene.characterIds.length > 0
+        ? activeChars.filter(c => scene.characterIds.includes(c.id))
+        : activeChars;
+
+      const charDesc = assignedChars.length > 0
+        ? `Characters: ${assignedChars.map((c, i) => `${c.name || `Character ${i + 1}`} (${c.role || 'consistent appearance'})`).join(', ')}. `
+        : '';
+
+      const camMap = {
+        'zoom-in': 'Smooth slow dolly zoom-in',
+        'pan-right': 'Cinematic horizontal camera pan right',
+        'orbit': 'Subtle dynamic orbital camera movement',
+        'push': 'Dramatic forward camera push-in'
+      };
+      const camText = camMap[scene.cameraMove] || 'Cinematic camera movement';
+
+      return `${scene.visualPrompt}. ${charDesc}Action & Motion: ${scene.veoPrompt}. ${camText}. Visual Style: ${styleObj.promptMod}. Aspect ratio ${appState.aspectRatio}, high detail, 24fps, no text or watermark.`;
+    }
+
+    function copySceneFlowPrompt(idx) {
+      const scene = appState.scenes[idx];
+      if (!scene) return;
+      safeCopyText(buildGoogleFlowPrompt(scene), `Prompt Google Flow Scene #${idx + 1} disalin! Siap paste di Google Flow.`);
+    }
+
+    function copyAllFlowPrompts() {
+      if (!appState.scenes.length) {
+        showToast('Belum ada scene yang dibuat.', 'error');
+        return;
+      }
+      const videoTitle = getSanitizedVideoTitle('KontenForge');
+      const compiled = appState.scenes.map((sc, i) =>
+        `=== SCENE ${i + 1}: ${sc.title} (${appState.aspectRatio}) ===\n${buildGoogleFlowPrompt(sc)}`
+      ).join('\n\n');
+      safeCopyText(`PROJECT: ${videoTitle} (GOOGLE FLOW PROMPTS)\n\n${compiled}`, `Semua ${appState.scenes.length} prompt Google Flow berhasil disalin!`);
+    }
+
+    function openGoogleFlowApp(idx = null) {
+      if (idx !== null && appState.scenes[idx]) {
+        safeCopyText(buildGoogleFlowPrompt(appState.scenes[idx]), `Prompt Scene #${idx + 1} disalin! Membuka Google Flow...`);
+      } else {
+        showToast('Membuka Google Flow (labs.google/fx/tools/flow)...', 'info');
+      }
+      window.open('https://labs.google/fx/tools/flow', '_blank', 'noopener,noreferrer');
+    }
+
+    async function handleSceneFlowVideoUpload(event, idx) {
+      const file = event.target.files?.[0];
+      const scene = appState.scenes[idx];
+      if (!file || !scene) return;
+
+      const videoUrl = URL.createObjectURL(file);
+      scene.videoUrl = videoUrl;
+      scene.loadedVideo = await preloadVideoElement(videoUrl);
+      scene.videoReady = true;
+      renderScenesGrid();
+      recordServiceStatus('success', `Google Flow Scene #${idx + 1}`, `Video "${file.name}" berhasil dimuat.`);
+      showToast(`Video Google Flow "${file.name}" terpasang di Scene #${idx + 1}!`, 'success');
+    }
+
+    async function handleBatchFlowVideosUpload(event) {
+      const files = Array.from(event.target.files || []);
+      if (files.length === 0) return;
+
+      let assigned = 0;
+      for (let i = 0; i < files.length && i < appState.scenes.length; i++) {
+        const file = files[i];
+        const videoUrl = URL.createObjectURL(file);
+        appState.scenes[i].videoUrl = videoUrl;
+        appState.scenes[i].loadedVideo = await preloadVideoElement(videoUrl);
+        appState.scenes[i].videoReady = true;
+        assigned++;
+      }
+
+      renderScenesGrid();
+      recordServiceStatus('success', 'Batch Upload Google Flow', `${assigned} video MP4 berhasil dipasang ke scene.`);
+      showToast(`${assigned} klip video Google Flow berhasil dimasukkan ke storyboard!`, 'success');
+    }
+
+    function updateAspectRatio(ratio) {
+      appState.aspectRatio = ratio;
+      const badge = document.getElementById('selected-ratio-badge');
+      if (badge) badge.textContent = ratio;
+    }
+
+    function getIdeasByTheme(theme) {
+      if (theme === 'all' || !IDEA_BANK[theme]) {
+        return Object.values(IDEA_BANK).flat();
+      }
+      return IDEA_BANK[theme];
+    }
+
+    function refreshIdeaChips() {
+      const container = document.getElementById('idea-chips-container');
+      const theme = document.getElementById('theme-select')?.value || 'all';
+      if (!container) return;
+
+      const pool = getIdeasByTheme(theme);
+      const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, 6);
+
+      container.innerHTML = shuffled.map(idea => `
+        <button type="button" onclick="applyIdeaTitle(${JSON.stringify(idea).replace(/"/g, '&quot;')})"
+          class="shrink-0 px-3 py-1.5 rounded-full bg-forge-card hover:bg-emerald-500/20 border border-forge-border hover:border-emerald-500/40 text-xs text-gray-200 hover:text-emerald-200 transition truncate max-w-[260px]">
+          ${idea}
+        </button>
+      `).join('');
+    }
+
+    function applyIdeaTitle(title) {
+      const input = document.getElementById('raw-title-input');
+      if (input) {
+        input.value = title;
+        showToast('Ide judul diterapkan!', 'info');
+      }
+    }
+
+    function pickRandomIdea() {
+      const theme = document.getElementById('theme-select')?.value || 'all';
+      const pool = getIdeasByTheme(theme);
+      const randomIdea = pool[Math.floor(Math.random() * pool.length)];
+      applyIdeaTitle(randomIdea);
+      refreshIdeaChips();
+    }
+
+    async function expandTitleWithAI() {
+      const input = document.getElementById('raw-title-input');
+      const rawTitle = input?.value?.trim();
+      if (!rawTitle) {
+        showToast('Ketik judul mentah terlebih dahulu!', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('expand-title-btn');
+      const origHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Mengembangkan...</span>`;
+      lucide.createIcons();
+      recordServiceStatus('loading', 'Kembangkan Judul AI', 'Membuat variasi judul viral...');
+
+      try {
+        const lang = document.getElementById('language-select')?.value || 'Indonesia';
+        const payload = {
+          contents: [{
+            parts: [{
+              text: `Ubah judul mentah berikut menjadi 1 judul video YouTube/TikTok yang sangat menarik, bikin penasaran (high CTR), natural, dan tidak clickbait murahan dalam bahasa ${lang}. Berikan HANYA 1 baris teks judul akhirnya saja tanpa tanda kutip atau penjelasan tambahan.\n\nJudul mentah: "${rawTitle}"`
+            }]
+          }]
+        };
+        const res = await generateTextWithFallback(payload);
+        const improved = res?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().replace(/^["']|["']$/g, '');
+        if (!improved) throw new Error('AI tidak mengembalikan judul.');
+
+        input.value = improved;
+        recordServiceStatus('success', 'Kembangkan Judul AI', 'Judul viral berhasil dibuat.');
+        showToast('Judul berhasil dikembangkan dengan AI!', 'success');
+      } catch (err) {
+        recordServiceStatus('error', 'Kembangkan Judul AI', err.message);
+        showToast('Gagal mengembangkan judul: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        lucide.createIcons();
+      }
+    }
+
+    function renderStyleCategories() {
+      const container = document.getElementById('style-category-tabs');
+      if (!container) return;
+
+      container.innerHTML = STYLE_CATEGORIES.map(cat => {
+        const active = appState.styleCategory === cat;
+        return `
+          <button type="button" onclick="selectStyleCategory('${cat}')"
+            class="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+              active
+                ? 'bg-emerald-500 text-slate-950 font-bold shadow'
+                : 'bg-forge-card hover:bg-forge-cardHover text-gray-300 border border-forge-border'
+            }">
+            ${cat}
+          </button>
+        `;
+      }).join('');
+    }
+
+    function selectStyleCategory(cat) {
+      appState.styleCategory = cat;
+      renderStyleCategories();
+      renderVisualStyles();
+    }
+
+    function renderVisualStyles() {
+      const grid = document.getElementById('visual-styles-grid');
+      if (!grid) return;
+
+      const query = (document.getElementById('style-search-input')?.value || '').trim().toLowerCase();
+      const filtered = VISUAL_STYLES.filter(st => {
+        const matchCat = appState.styleCategory === 'Semua' || st.cats.includes(appState.styleCategory);
+        const matchQuery = !query ||
+          st.name.toLowerCase().includes(query) ||
+          st.desc.toLowerCase().includes(query) ||
+          st.cats.some(c => c.toLowerCase().includes(query));
+        return matchCat && matchQuery;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div class="col-span-full text-center py-8 text-xs text-gray-400">Tidak ada gaya visual yang cocok dengan pencarian "${query}".</div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(st => {
+        const isSelected = st.id === appState.selectedStyleId;
+        const catBadges = st.cats.slice(0, 2).map(c =>
+          `<span class="px-1.5 py-0.5 rounded bg-forge-bg border border-forge-border text-[10px] text-gray-400">${c}</span>`
+        ).join('');
+
+        return `
+          <div onclick="selectVisualStyle('${st.id}')"
+            class="cursor-pointer rounded-xl p-3.5 border transition flex flex-col justify-between gap-2.5 ${
+              isSelected
+                ? 'bg-emerald-950/45 border-emerald-400 shadow-lg shadow-emerald-950/50'
+                : 'bg-forge-card hover:bg-forge-cardHover border-forge-border'
+            }">
+            <div>
+              <div class="flex items-start justify-between gap-2">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border border-white/10" style="background-color: ${st.color}22; color: ${st.color};">
+                  <i data-lucide="${st.icon}" class="w-4 h-4"></i>
+                </div>
+                ${isSelected ? `<span class="px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-extrabold">Dipilih</span>` : ''}
+              </div>
+              <h3 class="font-bold text-xs sm:text-sm text-white mt-2.5">${st.name}</h3>
+              <p class="text-[11px] text-gray-400 line-clamp-2 mt-1 leading-relaxed">${st.desc}</p>
+            </div>
+            <div class="flex items-center justify-between gap-1 pt-1">
+              <div class="flex items-center gap-1 flex-wrap">${catBadges}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      updateSelectedStyleSummary();
+      lucide.createIcons();
+    }
+
+    function selectVisualStyle(styleId) {
+      appState.selectedStyleId = styleId;
+      renderVisualStyles();
+    }
+
+    function updateSelectedStyleSummary() {
+      const styleObj = VISUAL_STYLES.find(s => s.id === appState.selectedStyleId) || VISUAL_STYLES[0];
+      const el = document.getElementById('selected-style-summary');
+      if (el) el.textContent = styleObj.name;
+    }
+
+    function getActiveCharactersList() {
+      return appState.characters.filter(c => (c.name || '').trim() || (c.role || '').trim() || !!c.base64);
+    }
+
+    function updateCharacterBadgeCount() {
+      const badge = document.getElementById('char-count-badge');
+      if (!badge) return;
+      const total = appState.characters.length;
+      const filled = getActiveCharactersList().length;
+      badge.textContent = filled > 0 ? `${filled} Aktif / ${total} Slot` : `${total} Slot Karakter`;
+    }
+
+    function addCharacterSlot(presetName = '', presetRole = '') {
+      const idx = appState.characters.length + 1;
+      appState.characters.push({
+        id: `char-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        name: presetName,
+        role: presetRole,
+        imageUrl: null,
+        base64: null,
+        mimeType: 'image/png',
+        isGenerating: false
+      });
+      renderCharactersList();
+      if (appState.currentStep === 3) renderScenesGrid();
+      showToast(`Slot Karakter #${idx} ditambahkan!`, 'info');
+    }
+
+    function addPresetFiveCharacters() {
+      const presets = [
+        { name: 'Tokoh Utama', role: 'Karakter sentral dengan ekspresi ekspresif & pakaian khas' },
+        { name: 'Rekan / Narator', role: 'Teman diskusi cerdas yang memberi penjelasan menarik' },
+        { name: 'Penemu / Ahli', role: 'Tokoh berwawasan luas dengan alat/perlengkapan khas' },
+        { name: 'Penantang / Konflik', role: 'Karakter yang memicu ketegangan atau dilema cerita' },
+        { name: 'Tokoh Pendukung', role: 'Warga/saksi sekitar yang memperkaya suasana adegan' }
+      ];
+
+      const currentMeaningful = getActiveCharactersList().length;
+      if (currentMeaningful === 0) {
+        appState.characters = presets.map((p, i) => ({
+          id: `char-preset-${i + 1}-${Date.now()}`,
+          name: p.name,
+          role: p.role,
+          imageUrl: null,
+          base64: null,
+          mimeType: 'image/png',
+          isGenerating: false
+        }));
+      } else {
+        while (appState.characters.length < 5) {
+          const p = presets[appState.characters.length] || { name: `Tokoh ${appState.characters.length + 1}`, role: 'Karakter kustom konsisten' };
+          appState.characters.push({
+            id: `char-extra-${appState.characters.length + 1}-${Date.now()}`,
+            name: p.name,
+            role: p.role,
+            imageUrl: null,
+            base64: null,
+            mimeType: 'image/png',
+            isGenerating: false
+          });
+        }
+      }
+
+      renderCharactersList();
+      if (appState.currentStep === 3) renderScenesGrid();
+      showToast(`Siap! ${appState.characters.length} slot karakter kustom tersedia.`, 'success');
+    }
+
+    function removeCharacterSlot(charIdx) {
+      if (appState.characters.length <= 1) {
+        appState.characters[0] = {
+          id: appState.characters[0].id,
+          name: '',
+          role: '',
+          imageUrl: null,
+          base64: null,
+          mimeType: 'image/png',
+          isGenerating: false
+        };
+        renderCharactersList();
+        showToast('Slot karakter pertama dikosongkan.', 'info');
+        return;
+      }
+      const removed = appState.characters[charIdx];
+      appState.characters.splice(charIdx, 1);
+      if (removed) {
+        appState.scenes.forEach(sc => {
+          if (Array.isArray(sc.characterIds)) {
+            sc.characterIds = sc.characterIds.filter(id => id !== removed.id);
+          }
+        });
+      }
+      renderCharactersList();
+      if (appState.currentStep === 3) renderScenesGrid();
+      showToast('Karakter dihapus.', 'info');
+    }
+
+    function updateCharacterField(charIdx, field, value) {
+      if (!appState.characters[charIdx]) return;
+      appState.characters[charIdx][field] = value;
+      updateCharacterBadgeCount();
+    }
+
+    function renderCharactersList() {
+      const container = document.getElementById('characters-list-container');
+      if (!container) return;
+
+      container.innerHTML = appState.characters.map((ch, idx) => `
+        <div class="bg-forge-bg/90 border border-forge-border hover:border-emerald-500/30 rounded-xl p-3.5 flex flex-col sm:flex-row gap-3.5 transition">
+          <div class="flex sm:flex-col items-center justify-between sm:justify-start gap-2 shrink-0">
+            <div class="w-16 h-16 rounded-xl bg-forge-card border border-forge-border overflow-hidden flex items-center justify-center relative">
+              ${ch.imageUrl
+                ? `<img src="${ch.imageUrl}" alt="${ch.name || `Tokoh ${idx + 1}`}" class="w-full h-full object-cover" />`
+                : `<i data-lucide="user" class="w-7 h-7 text-gray-500"></i>`
+              }
+              ${ch.isGenerating ? `
+                <div class="absolute inset-0 bg-black/70 flex items-center justify-center">
+                  <i data-lucide="loader-2" class="w-5 h-5 text-emerald-400 animate-spin"></i>
+                </div>
+              ` : ''}
+            </div>
+            <span class="px-2 py-0.5 rounded bg-forge-card border border-forge-border text-[10px] font-mono font-bold text-emerald-300">Tokoh #${idx + 1}</span>
+          </div>
+
+          <div class="flex-1 space-y-2 min-w-0">
+            <div class="flex items-center gap-2">
+              <input type="text" value="${(ch.name || '').replace(/"/g, '&quot;')}" oninput="updateCharacterField(${idx}, 'name', this.value)"
+                placeholder="Nama tokoh #${idx + 1}, misal: Budi"
+                class="flex-1 bg-forge-card border border-forge-border rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400" />
+              <button type="button" onclick="removeCharacterSlot(${idx})" title="Hapus tokoh ini"
+                class="p-1.5 rounded-lg bg-forge-card hover:bg-red-500/20 border border-forge-border text-gray-400 hover:text-red-300 transition shrink-0">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+
+            <input type="text" value="${(ch.role || '').replace(/"/g, '&quot;')}" oninput="updateCharacterField(${idx}, 'role', this.value)"
+              placeholder="Peran / ciri khas visual, misal: kakek penjual roti, topi kain, senyum ramah"
+              class="w-full bg-forge-card border border-forge-border rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400" />
+
+            <div class="flex flex-wrap items-center gap-2 pt-0.5">
+              <button type="button" onclick="generateCharacterPortrait(${idx})" ${ch.isGenerating ? 'disabled' : ''}
+                class="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-[11px] font-semibold flex items-center gap-1.5 transition">
+                <i data-lucide="wand-2" class="w-3 h-3"></i>
+                <span>${ch.isGenerating ? 'Membuat...' : 'Buat wajah karakter'}</span>
+              </button>
+
+              <label class="px-3 py-1.5 rounded-lg bg-forge-card hover:bg-forge-cardHover border border-forge-border text-gray-200 text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer transition">
+                <i data-lucide="upload" class="w-3 h-3 text-teal-400"></i>
+                <span>+ Upload foto tokoh</span>
+                <input type="file" accept="image/*" onchange="handleCharacterUpload(event, ${idx})" class="hidden" />
+              </label>
+
+              ${ch.imageUrl ? `
+                <button type="button" onclick="clearCharacterImage(${idx})" class="px-2.5 py-1.5 rounded-lg bg-forge-card hover:bg-red-500/20 text-[11px] text-gray-400 hover:text-red-300 transition">
+                  Hapus Foto
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      updateCharacterBadgeCount();
+      lucide.createIcons();
+    }
+
+    function handleCharacterUpload(event, charIdx = 0) {
+      const file = event.target.files?.[0];
+      if (!file || !appState.characters[charIdx]) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target.result;
+        const base64 = dataUrl.split(',')[1];
+        appState.characters[charIdx].imageUrl = dataUrl;
+        appState.characters[charIdx].base64 = base64;
+        appState.characters[charIdx].mimeType = file.type || 'image/png';
+        renderCharactersList();
+        showToast(`Foto tokoh #${charIdx + 1} (${file.name}) berhasil diunggah!`, 'success');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearCharacterImage(charIdx) {
+      if (!appState.characters[charIdx]) return;
+      appState.characters[charIdx].imageUrl = null;
+      appState.characters[charIdx].base64 = null;
+      renderCharactersList();
+    }
+
+    async function generateCharacterPortrait(charIdx = 0) {
+      const ch = appState.characters[charIdx];
+      if (!ch) return;
+
+      const title = document.getElementById('raw-title-input')?.value?.trim() || 'Kisah Menarik';
+      const styleObj = VISUAL_STYLES.find(s => s.id === appState.selectedStyleId) || VISUAL_STYLES[0];
+      const name = (ch.name || '').trim() || `Karakter Utama ${charIdx + 1}`;
+      const role = (ch.role || '').trim() || `tokoh utama dalam cerita "${title}"`;
+
+      ch.isGenerating = true;
+      renderCharactersList();
+      recordServiceStatus('loading', `Buat Wajah Tokoh #${charIdx + 1}`, `Merender potret ${name}...`);
+
+      try {
+        const prompt = `Character portrait sheet of ${name}, ${role}, related to story "${title}". Visual style: ${styleObj.promptMod}. Centered bust-up character reference portrait, clear recognizable face and outfit, clean studio backdrop, no text.`;
+        const imgRes = await generateImageUniversal(prompt, '1:1', null, appState.imageEngine);
+
+        ch.imageUrl = imgRes.dataUrl;
+        ch.base64 = imgRes.base64;
+        ch.mimeType = imgRes.mimeType;
+        if (!ch.name) ch.name = name;
+
+        recordServiceStatus('success', `Buat Wajah Tokoh #${charIdx + 1}`, `Potret ${name} berhasil dibuat.`);
+        showToast(`Wajah karakter "${name}" berhasil dibuat!`, 'success');
+      } catch (err) {
+        recordServiceStatus('error', `Buat Wajah Tokoh #${charIdx + 1}`, err.message);
+        showToast('Gagal membuat karakter AI: ' + err.message, 'error');
+      } finally {
+        ch.isGenerating = false;
+        renderCharactersList();
+      }
+    }
+
+    function setScriptFormat(fmt) {
+      appState.scriptFormat = fmt;
+      const singleBtn = document.getElementById('fmt-single-btn');
+      const seriesBtn = document.getElementById('fmt-series-btn');
+      if (fmt === 'single') {
+        singleBtn.className = 'py-2 rounded-lg text-xs font-bold bg-emerald-600 text-white transition';
+        seriesBtn.className = 'py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
+      } else {
+        seriesBtn.className = 'py-2 rounded-lg text-xs font-bold bg-emerald-600 text-white transition';
+        singleBtn.className = 'py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
+      }
+      updateDurationEstimate();
+    }
+
+    function getSceneCountForDuration(mins) {
+      const map = { 1: 3, 3: 5, 5: 7, 8: 8, 10: 9, 15: 10, 20: 11, 30: 12 };
+      return map[mins] || 7;
+    }
+
+    function updateDurationEstimate() {
+      const mins = parseInt(document.getElementById('duration-select')?.value || '5', 10);
+      const words = mins * 145;
+      const scenes = getSceneCountForDuration(mins);
+      const suffix = appState.scriptFormat === 'series' ? ' • Mode Series Bersambung' : '';
+      const el = document.getElementById('duration-estimate-text');
+      if (el) {
+        el.textContent = `± ${words.toLocaleString('id-ID')} kata • ± ${scenes} scene terstruktur • ± ${scenes} klip video Google Flow${suffix}`;
+      }
+    }
+
+    async function generateFullScriptAndScenes() {
+      const title = document.getElementById('raw-title-input')?.value?.trim();
+      if (!title) {
+        showToast('Masukkan judul video terlebih dahulu!', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('generate-script-btn');
+      const origHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Menyusun Naskah & Scene...</span>`;
+      lucide.createIcons();
+
+      const mins = parseInt(document.getElementById('duration-select')?.value || '5', 10);
+      const sceneCount = getSceneCountForDuration(mins);
+      const tone = document.getElementById('narration-tone-select')?.value || 'Santai ngobrol';
+      const lang = document.getElementById('language-select')?.value || 'Indonesia';
+      const styleObj = VISUAL_STYLES.find(s => s.id === appState.selectedStyleId) || VISUAL_STYLES[0];
+      const activeChars = getActiveCharactersList();
+      const charInfo = activeChars.length > 0
+        ? `Daftar Karakter Kustom (${activeChars.length} tokoh): ${activeChars.map((c, i) => `[${c.id}] ${c.name || `Tokoh ${i + 1}`} (${c.role || 'karakter utama'})`).join('; ')}.`
+        : 'Karakter: Sesuai konteks cerita.';
+      const formatNote = appState.scriptFormat === 'series'
+        ? 'Buat struktur cerita bersambung (Part 1 / Episode pembuka dengan cliffhanger menarik di akhir).'
+        : 'Buat satu video utuh dengan alur hook, isi/konflik, klimaks/fakta inti, dan kesimpulan.';
+
+      recordServiceStatus('loading', 'Tulis Naskah & Scene', `Menyusun naskah & ${sceneCount} scene...`);
+
+      try {
+        const prompt = `Kamu adalah sutradara konten & penulis naskah video profesional untuk YouTube, Facebook Pro, dan TikTok.
+Buat naskah lengkap dan pemecahan ${sceneCount} scene untuk judul: "${title}".
+Bahasa: ${lang}.
+Gaya narasi: ${tone}.
+Target durasi: ±${mins} menit.
+Format: ${formatNote}
+Gaya visual: ${styleObj.name} (${styleObj.promptMod}).
+${charInfo}
+
+Kembalikan HANYA JSON valid (tanpa markdown \`\`\`) dengan struktur:
+{
+  "fullScript": "Naskah narasi lengkap yang mengalir enak didengar untuk voiceover...",
+  "scenes": [
+    {
+      "sceneTitle": "Judul singkat scene",
+      "narration": "Kalimat narasi untuk scene ini (1-3 kalimat)",
+      "visualPrompt": "Deskripsi visual detail dalam bahasa Inggris tanpa teks/watermark",
+      "veoPrompt": "Deskripsi gerakan karakter dan lingkungan dalam bahasa Inggris (misal: character gestures while speaking, wind blowing hair, glowing particles, 24fps)",
+      "cameraMove": "zoom-in",
+      "characterIds": ["${activeChars[0]?.id || ''}"]
+    }
+  ]
+}
+Nilai "cameraMove" harus salah satu dari: "zoom-in", "pan-right", "orbit", "push".
+Nilai "characterIds" berisi array ID karakter dari daftar di atas yang muncul di scene tersebut (boleh kosong [] jika scene tanpa tokoh).`;
+
+        const payload = {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json' }
+        };
+
+        const result = await generateTextWithFallback(payload);
+        const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        const cleanedJson = rawText.replace(/```json|```/gi, '').trim();
+        const parsed = JSON.parse(cleanedJson);
+
+        appState.scriptText = parsed.fullScript || '';
+        document.getElementById('script-editor-textarea').value = appState.scriptText;
+
+        const validCharIds = new Set(appState.characters.map(c => c.id));
+        appState.scenes = (parsed.scenes || []).map((s, idx) => {
+          const pickedIds = Array.isArray(s.characterIds)
+            ? s.characterIds.filter(id => validCharIds.has(id))
+            : [];
+          return {
+            id: `scene-${Date.now()}-${idx}`,
+            index: idx + 1,
+            title: s.sceneTitle || `Scene ${idx + 1}`,
+            narration: s.narration || '',
+            visualPrompt: s.visualPrompt || '',
+            veoPrompt: s.veoPrompt || 'Character gestures expressively while talking, wind blowing through hair and environment, atmospheric particles, 24fps',
+            cameraMove: ['zoom-in', 'pan-right', 'orbit', 'push'].includes(s.cameraMove) ? s.cameraMove : 'zoom-in',
+            characterIds: pickedIds.length > 0 ? pickedIds : (activeChars[0] ? [activeChars[0].id] : []),
+            imageUrl: null,
+            videoUrl: null,
+            loadedImg: null,
+            loadedVideo: null,
+            isGenerating: false,
+            videoReady: false
+          };
+        });
+
+        if (appState.scenes.length === 0) {
+          createDefaultScenesFromTitle();
+        }
+
+        recordServiceStatus('success', 'Tulis Naskah & Scene', `${appState.scenes.length} scene berhasil dibuat.`);
+        showToast(`Naskah & ${appState.scenes.length} scene berhasil dibuat!`, 'success');
+        goToStep(3);
+      } catch (err) {
+        recordServiceStatus('error', 'Tulis Naskah & Scene', err.message);
+        createDefaultScenesFromTitle();
+        const fallbackScript = appState.scenes.map((s, i) => `[Scene ${i + 1}: ${s.title}]\n${s.narration}`).join('\n\n');
+        appState.scriptText = fallbackScript;
+        document.getElementById('script-editor-textarea').value = fallbackScript;
+        showToast('Mode offline template aktif: ' + err.message, 'info');
+        goToStep(3);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        lucide.createIcons();
+      }
+    }
+
+    function createDefaultScenesFromTitle() {
+      const title = document.getElementById('raw-title-input')?.value?.trim() || 'Kisah Menarik Hari Ini';
+      const firstCharId = appState.characters[0]?.id ? [appState.characters[0].id] : [];
+      appState.scenes = [
+        {
+          id: `scene-${Date.now()}-0`,
+          index: 1,
+          title: 'Hook Pembuka',
+          narration: `Pernahkah kamu membayangkan bagaimana awal mula kisah "${title}" mengubah sejarah manusia?`,
+          visualPrompt: `Dramatic opening scene illustrating ${title}, rich storytelling composition, atmospheric lighting`,
+          veoPrompt: `Character looks around in amazement and gestures with hands, floating dust motes in golden light, wind swaying background foliage, 24fps`,
+          cameraMove: 'push',
+          characterIds: firstCharId,
+          imageUrl: null,
+          videoUrl: null,
+          loadedImg: null,
+          loadedVideo: null,
+          isGenerating: false,
+          videoReady: false
+        },
+        {
+          id: `scene-${Date.now()}-1`,
+          index: 2,
+          title: 'Konflik & Penemuan',
+          narration: `Semua berawal dari sebuah ketidaksengajaan sederhana yang ternyata menjadi titik balik luar biasa.`,
+          visualPrompt: `Close up detailed storytelling moment of ${title}, expressive action and authentic environment`,
+          veoPrompt: `Character actively interacts with objects in the scene, dynamic natural lighting shifts, realistic environmental motion, 24fps`,
+          cameraMove: 'pan-right',
+          characterIds: firstCharId,
+          imageUrl: null,
+          videoUrl: null,
+          loadedImg: null,
+          loadedVideo: null,
+          isGenerating: false,
+          videoReady: false
+        },
+        {
+          id: `scene-${Date.now()}-2`,
+          index: 3,
+          title: 'Kesimpulan & Pelajaran',
+          narration: `Dari kisah ini kita belajar bahwa rasa ingin tahu selalu melahirkan inovasi yang bertahan ribuan tahun.`,
+          visualPrompt: `Grand triumphant wide shot concluding ${title}, warm inspiring sunset horizon`,
+          veoPrompt: `Character smiles proudly looking toward the horizon, clouds drifting smoothly across sunset sky, 24fps`,
+          cameraMove: 'orbit',
+          characterIds: firstCharId,
+          imageUrl: null,
+          videoUrl: null,
+          loadedImg: null,
+          loadedVideo: null,
+          isGenerating: false,
+          videoReady: false
+        }
+      ];
+    }
+
+    function copyFullScript() {
+      const text = document.getElementById('script-editor-textarea')?.value?.trim();
+      if (!text) {
+        showToast('Naskah masih kosong.', 'error');
+        return;
+      }
+      safeCopyText(text, 'Naskah lengkap berhasil disalin!');
+    }
+
+    function base64ToArrayBuffer(base64) {
+      const binaryString = atob(base64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes.buffer;
+    }
+
+    function pcmToWav(pcmData, sampleRate = 24000, numChannels = 1, bitsPerSample = 16) {
+      const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+      const blockAlign = numChannels * (bitsPerSample / 8);
+      const dataSize = pcmData.length * (bitsPerSample / 8);
+      const buffer = new ArrayBuffer(44 + dataSize);
+      const view = new DataView(buffer);
+
+      function writeString(offset, str) {
+        for (let i = 0; i < str.length; i++) {
+          view.setUint8(offset + i, str.charCodeAt(i));
+        }
+      }
+
+      writeString(0, 'RIFF');
+      view.setUint32(4, 36 + dataSize, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, byteRate, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, bitsPerSample, true);
+      writeString(36, 'data');
+      view.setUint32(40, dataSize, true);
+
+      let offset = 44;
+      for (let i = 0; i < pcmData.length; i++, offset += 2) {
+        view.setInt16(offset, pcmData[i], true);
+      }
+
+      return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    async function generateTTSAudio() {
+      const script = document.getElementById('script-editor-textarea')?.value?.trim();
+      if (!script) {
+        showToast('Tulis atau generate naskah terlebih dahulu sebelum membuat suara.', 'error');
+        return;
+      }
+
+      const voiceName = document.getElementById('tts-voice-select')?.value || 'Kore';
+      const tone = document.getElementById('narration-tone-select')?.value || 'Santai ngobrol';
+      const extraStyle = document.getElementById('tts-style-instructions')?.value?.trim() || '';
+      const btn = document.getElementById('generate-tts-btn');
+      const origHtml = btn.innerHTML;
+
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Merender suara AI...</span>`;
+      lucide.createIcons();
+      recordServiceStatus('loading', 'Voiceover TTS', `Membuat suara ${voiceName}...`);
+
+      try {
+        const stylePrompt = extraStyle ? `${tone}, ${extraStyle}` : tone;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+        const payload = {
+          contents: [{
+            parts: [{ text: `Bacakan naskah berikut dengan gaya ${stylePrompt} yang natural dan ekspresif:\n\n${script.slice(0, 1400)}` }]
+          }],
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName }
+              }
+            }
+          }
+        };
+
+        const result = await fetchWithBackoff(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const part = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+        if (!part) throw new Error('Audio TTS tidak dikembalikan oleh server.');
+
+        const mimeType = part.inlineData.mimeType || 'audio/L16;rate=24000';
+        const rateMatch = mimeType.match(/rate=(\d+)/);
+        const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
+        const pcmBuffer = base64ToArrayBuffer(part.inlineData.data);
+        const pcm16 = new Int16Array(pcmBuffer);
+        const wavBlob = pcmToWav(pcm16, sampleRate);
+        const audioUrl = URL.createObjectURL(wavBlob);
+
+        appState.audio = { url: audioUrl, fileName: `Voiceover_${voiceName}.wav` };
+        const player = document.getElementById('voiceover-audio-player');
+        const playerBox = document.getElementById('audio-player-box');
+        player.src = audioUrl;
+        document.getElementById('audio-file-label').textContent = `File aktif: ${appState.audio.fileName}`;
+        playerBox.classList.remove('hidden');
+
+        recordServiceStatus('success', 'Voiceover TTS', `Audio ${voiceName} berhasil dirender.`);
+        showToast('Voiceover AI berhasil dibuat!', 'success');
+      } catch (err) {
+        recordServiceStatus('error', 'Voiceover TTS', err.message);
+        showToast('Gagal membuat suara AI: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        lucide.createIcons();
+      }
+    }
+
+    function handleAudioUpload(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      appState.audio = { url, fileName: file.name };
+      const player = document.getElementById('voiceover-audio-player');
+      const playerBox = document.getElementById('audio-player-box');
+      player.src = url;
+      document.getElementById('audio-file-label').textContent = `File aktif: ${file.name}`;
+      playerBox.classList.remove('hidden');
+      showToast(`Audio "${file.name}" siap digunakan!`, 'success');
+    }
+
+    function goToStep(stepNum) {
+      appState.currentStep = stepNum;
+
+      if (stepNum !== 3) {
+        stopSceneCardsAnimationLoop();
+      }
+      if (stepNum !== 4) {
+        stopAssembly();
+      }
+
+      [1, 2, 3, 4].forEach(n => {
+        const view = document.getElementById(`step-view-${n}`);
+        const btn = document.getElementById(`step-btn-${n}`);
+        if (view) {
+          if (n === stepNum) view.classList.remove('hidden');
+          else view.classList.add('hidden');
+        }
+        if (btn) {
+          const circle = btn.querySelector('span');
+          if (n === stepNum) {
+            btn.className = 'step-pill flex items-center gap-3 p-3 rounded-xl border border-emerald-500 bg-emerald-950/40 text-left transition';
+            if (circle) circle.className = 'w-7 h-7 rounded-full bg-emerald-500 text-slate-950 font-extrabold text-xs flex items-center justify-center shrink-0';
+          } else {
+            btn.className = 'step-pill flex items-center gap-3 p-3 rounded-xl border border-forge-border bg-forge-panel hover:bg-forge-card text-left transition';
+            if (circle) circle.className = 'w-7 h-7 rounded-full bg-forge-card border border-forge-border text-gray-300 font-bold text-xs flex items-center justify-center shrink-0';
+          }
+        }
+      });
+
+      if (stepNum === 3) {
+        if (appState.scenes.length === 0) {
+          createDefaultScenesFromTitle();
+        }
+        renderScenesGrid();
+        startSceneCardsAnimationLoop();
+      } else if (stepNum === 4) {
+        if (appState.scenes.length === 0) {
+          createDefaultScenesFromTitle();
+        }
+        updateRenderSummary();
+        setupAssemblyCanvas().then(() => drawAssemblyFrame(0, 0.2));
+      }
+
+      lucide.createIcons();
+    }
+
+    function toggleSceneCharacter(sceneIdx, charId) {
+      const scene = appState.scenes[sceneIdx];
+      if (!scene) return;
+      if (!Array.isArray(scene.characterIds)) scene.characterIds = [];
+      const exists = scene.characterIds.includes(charId);
+      if (exists) {
+        scene.characterIds = scene.characterIds.filter(id => id !== charId);
+      } else {
+        scene.characterIds.push(charId);
+      }
+      renderScenesGrid();
+    }
+
+    function renderScenesGrid() {
+      const container = document.getElementById('scenes-grid-container');
+      const countPill = document.getElementById('scene-count-pill');
+      if (countPill) countPill.textContent = `${appState.scenes.length} Scene`;
+      if (!container) return;
+
+      const isVideoMode = appState.outputMode !== 'image';
+      const activeChars = getActiveCharactersList();
+
+      container.innerHTML = appState.scenes.map((scene, idx) => {
+        const hasMedia = !!(scene.videoUrl || scene.imageUrl);
+        const isAIVideoClip = !!scene.videoUrl;
+
+        const charSelectorHtml = activeChars.length > 0 ? `
+          <div class="pt-1">
+            <label class="block text-[10px] font-semibold uppercase text-gray-400 mb-1">Tokoh aktif di scene ini:</label>
+            <div class="flex flex-wrap gap-1">
+              ${activeChars.map((ch, cIdx) => {
+                const selected = Array.isArray(scene.characterIds) && scene.characterIds.includes(ch.id);
+                const label = (ch.name || '').trim() || `Tokoh #${cIdx + 1}`;
+                return `
+                  <button type="button" onclick="toggleSceneCharacter(${idx}, '${ch.id}')"
+                    class="px-2 py-0.5 rounded-md text-[10px] font-semibold border transition ${
+                      selected
+                        ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200'
+                        : 'bg-forge-bg border-forge-border text-gray-400 hover:text-gray-200'
+                    }">
+                    ${selected ? '✓ ' : ''}${label}
+                  </button>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : '';
+
+        return `
+          <div class="bg-forge-panel border border-forge-border rounded-2xl overflow-hidden flex flex-col justify-between transition hover:border-emerald-500/40">
+            <div>
+              <div class="px-4 py-2.5 bg-forge-bg/80 border-b border-forge-border flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-mono text-xs font-bold">#${idx + 1}</span>
+                  <input type="text" value="${scene.title.replace(/"/g, '&quot;')}" onchange="updateSceneField(${idx}, 'title', this.value)"
+                    class="bg-transparent text-xs font-bold text-white focus:outline-none focus:underline truncate w-full" />
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                  <span class="px-2 py-0.5 rounded-full bg-forge-card border border-forge-border text-[10px] font-semibold text-teal-300">${isAIVideoClip ? 'Video AI .WebM' : (isVideoMode ? 'Free AI Video' : 'Foto AI')}</span>
+                  <button type="button" onclick="deleteScene(${idx})" title="Hapus scene" class="p-1 rounded-lg hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="relative aspect-video bg-black overflow-hidden flex items-center justify-center group">
+                ${hasMedia ? `
+                  <canvas id="scene-card-canvas-${idx}" width="640" height="360" class="w-full h-full object-cover"></canvas>
+                  <div class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm border border-white/10 text-[10px] font-semibold text-emerald-300 flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                    ${isAIVideoClip ? 'AI Video (.WebM)' : (isVideoMode ? 'AI Video Ready' : 'High-Res PNG')}
+                  </div>
+                  <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                    <button type="button" onclick="openPreviewModal(${idx})" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg">
+                      <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i> Perbesar
+                    </button>
+                    ${isVideoMode ? `
+                      <button type="button" onclick="exportSingleSceneVideoClip(${idx})" class="px-3 py-1.5 rounded-xl bg-forge-panel hover:bg-forge-card border border-forge-border text-white text-xs font-semibold flex items-center gap-1.5">
+                        <i data-lucide="film" class="w-3.5 h-3.5 text-teal-400"></i> Unduh .WebM
+                      </button>
+                    ` : ''}
+                  </div>
+                ` : `
+                  <div class="text-center p-4">
+                    ${scene.isGenerating ? `
+                      <i data-lucide="loader-2" class="w-7 h-7 text-emerald-400 animate-spin mx-auto mb-2"></i>
+                      <p class="text-xs font-semibold text-emerald-300">${scene.statusLabel || 'Merender video AI...'}</p>
+                    ` : `
+                      <i data-lucide="${isVideoMode ? 'film' : 'image'}" class="w-7 h-7 text-gray-600 mx-auto mb-1.5"></i>
+                      <p class="text-[11px] text-gray-400">Belum digenerate</p>
+                    `}
+                  </div>
+                `}
+              </div>
+
+              <div class="p-3.5 space-y-2.5">
+                <div>
+                  <label class="block text-[10px] font-semibold uppercase text-gray-400 mb-1">Narasi / Subtitle</label>
+                  <textarea rows="2" onchange="updateSceneField(${idx}, 'narration', this.value)"
+                    class="w-full bg-forge-bg border border-forge-border rounded-lg p-2 text-xs text-gray-200 focus:outline-none focus:border-emerald-400">${scene.narration}</textarea>
+                </div>
+
+                <div>
+                  <label class="block text-[10px] font-semibold uppercase text-gray-400 mb-1">Prompt Visual Scene</label>
+                  <textarea rows="2" onchange="updateSceneField(${idx}, 'visualPrompt', this.value)"
+                    class="w-full bg-forge-bg border border-forge-border rounded-lg p-2 text-[11px] font-mono text-gray-300 focus:outline-none focus:border-emerald-400">${scene.visualPrompt}</textarea>
+                </div>
+
+                ${charSelectorHtml}
+
+                ${isVideoMode ? `
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label class="block text-[10px] font-semibold uppercase text-teal-400 mb-1">Gerak Karakter & Lingkungan</label>
+                      <input type="text" value="${scene.veoPrompt.replace(/"/g, '&quot;')}" onchange="updateSceneField(${idx}, 'veoPrompt', this.value)"
+                        class="w-full bg-forge-bg border border-forge-border rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-teal-200 focus:outline-none focus:border-teal-400" />
+                    </div>
+                    <div>
+                      <label class="block text-[10px] font-semibold uppercase text-gray-400 mb-1">Pergerakan Kamera</label>
+                      <select onchange="updateSceneField(${idx}, 'cameraMove', this.value); renderScenesGrid();"
+                        class="w-full bg-forge-bg border border-forge-border rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-emerald-400">
+                        <option value="zoom-in" ${scene.cameraMove === 'zoom-in' ? 'selected' : ''}>Slow Zoom In</option>
+                        <option value="pan-right" ${scene.cameraMove === 'pan-right' ? 'selected' : ''}>Panning Kanan</option>
+                        <option value="orbit" ${scene.cameraMove === 'orbit' ? 'selected' : ''}>Orbit Halus</option>
+                        <option value="push" ${scene.cameraMove === 'push' ? 'selected' : ''}>Dolly Push</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="pt-1.5 border-t border-forge-border/60 flex flex-wrap items-center justify-between gap-1.5">
+                    <button type="button" onclick="copySceneFlowPrompt(${idx})" class="px-2 py-1 rounded-lg bg-forge-bg hover:bg-forge-card border border-forge-border text-[10px] font-semibold text-gray-300 hover:text-white transition">
+                      Salin Prompt Flow
+                    </button>
+                    <button type="button" onclick="openGoogleFlowApp(${idx})" class="px-2 py-1 rounded-lg bg-emerald-950/70 hover:bg-emerald-900/70 border border-emerald-500/30 text-[10px] font-semibold text-emerald-300 transition">
+                      Google Flow
+                    </button>
+                    <label class="px-2 py-1 rounded-lg bg-forge-bg hover:bg-forge-card border border-teal-500/30 text-[10px] font-semibold text-teal-300 cursor-pointer transition">
+                      Upload MP4
+                      <input type="file" accept="video/*" onchange="handleSceneFlowVideoUpload(event, ${idx})" class="hidden" />
+                    </label>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+
+            <div class="px-3.5 pb-3.5 pt-1">
+              <button type="button" onclick="generateSingleSceneMedia(${idx})" ${scene.isGenerating ? 'disabled' : ''}
+                class="w-full py-2.5 rounded-xl ${hasMedia ? 'bg-forge-card hover:bg-forge-cardHover border border-emerald-500/40 text-emerald-300' : 'bg-emerald-600 hover:bg-emerald-500 text-white'} text-xs font-bold flex items-center justify-center gap-1.5 transition">
+                <i data-lucide="${scene.isGenerating ? 'loader-2' : 'sparkles'}" class="w-3.5 h-3.5 ${scene.isGenerating ? 'animate-spin' : ''}"></i>
+                <span>${scene.isGenerating ? 'Sedang Memproses...' : (hasMedia ? 'Regenerate Video AI' : (isVideoMode ? 'Generate Video AI (Otomatis)' : 'Generate Foto AI'))}</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      updateGeneratedCounter();
+      lucide.createIcons();
+    }
+
+    function addNewBlankScene() {
+      const nextNum = appState.scenes.length + 1;
+      const defaultCharIds = appState.characters[0]?.id ? [appState.characters[0].id] : [];
+      appState.scenes.push({
+        id: `scene-${Date.now()}-${nextNum}`,
+        index: nextNum,
+        title: `Scene Tambahan ${nextNum}`,
+        narration: 'Tulis narasi untuk scene tambahan ini...',
+        visualPrompt: 'Cinematic storytelling shot matching the main story theme, rich lighting',
+        veoPrompt: 'Character gestures naturally, wind swaying trees and ambient particles, cinematic 24fps',
+        cameraMove: 'zoom-in',
+        characterIds: defaultCharIds,
+        imageUrl: null,
+        videoUrl: null,
+        loadedImg: null,
+        loadedVideo: null,
+        isGenerating: false,
+        videoReady: false
+      });
+      renderScenesGrid();
+      showToast('Scene baru ditambahkan!', 'info');
+    }
+
+    function deleteScene(idx) {
+      if (appState.scenes.length <= 1) {
+        showToast('Minimal harus ada 1 scene tersisa.', 'error');
+        return;
+      }
+      appState.scenes.splice(idx, 1);
+      appState.scenes.forEach((s, i) => { s.index = i + 1; });
+      renderScenesGrid();
+      showToast('Scene dihapus.', 'info');
+    }
+
+    function updateSceneField(idx, field, value) {
+      if (appState.scenes[idx]) {
+        appState.scenes[idx][field] = value;
+      }
+    }
+
+    function preloadImageElement(url) {
+      return new Promise((resolve) => {
+        if (!url) return resolve(null);
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
+    }
+
+    function preloadVideoElement(url) {
+      return new Promise((resolve) => {
+        if (!url) return resolve(null);
+        const vid = document.createElement('video');
+        vid.src = url;
+        vid.muted = true;
+        vid.loop = true;
+        vid.playsInline = true;
+        vid.onloadeddata = () => {
+          vid.play().catch(() => {});
+          resolve(vid);
+        };
+        vid.onerror = () => resolve(null);
+      });
+    }
+
+    async function synthesizeFreeAIVideoClip(scene, baseImg, aspectRatio, durationMs = 3600) {
+      const mimeType = getSupportedRecorderMimeType();
+      if (!mimeType || typeof MediaRecorder === 'undefined') {
+        return null;
+      }
+
+      const canvas = document.createElement('canvas');
+      const dims = getAspectDimensions(aspectRatio);
+      canvas.width = dims.w;
+      canvas.height = dims.h;
+      const ctx = canvas.getContext('2d');
+
+      const stream = canvas.captureStream(30);
+      const recorder = new MediaRecorder(stream, { mimeType });
+      const chunks = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+
+      const tempScene = { ...scene, loadedImg: baseImg };
+      recorder.start();
+      const startTime = performance.now();
+
+      await new Promise((resolve) => {
+        function step(now) {
+          const elapsed = now - startTime;
+          const p = Math.min(1, elapsed / durationMs);
+          renderSceneLayerSync(ctx, tempScene, p, canvas.width, canvas.height);
+          if (p < 1) {
+            requestAnimationFrame(step);
+          } else {
+            recorder.stop();
+            resolve();
+          }
+        }
+        requestAnimationFrame(step);
+      });
+
+      await new Promise((resolve) => {
+        recorder.onstop = resolve;
+      });
+
+      const blob = new Blob(chunks, { type: mimeType.split(';')[0] || 'video/webm' });
+      if (!blob.size) return null;
+      return URL.createObjectURL(blob);
+    }
+
+    async function generateSingleSceneMedia(idx) {
+      const scene = appState.scenes[idx];
+      if (!scene || scene.isGenerating) return;
+
+      const styleObj = VISUAL_STYLES.find(s => s.id === appState.selectedStyleId) || VISUAL_STYLES[0];
+      const activeChars = getActiveCharactersList();
+      const assignedChars = Array.isArray(scene.characterIds) && scene.characterIds.length > 0
+        ? activeChars.filter(c => scene.characterIds.includes(c.id))
+        : activeChars;
+
+      const charAnchor = assignedChars.length > 0
+        ? `Consistent characters in scene: ${assignedChars.map((c, i) => `${c.name || `Character ${i + 1}`} (${c.role || 'consistent appearance'})`).join(', ')}.`
+        : '';
+
+      const isVideoMode = appState.outputMode !== 'image';
+
+      scene.isGenerating = true;
+      scene.statusLabel = isVideoMode ? 'Merender visual & video AI otomatis...' : 'Merender Foto AI...';
+      renderScenesGrid();
+      recordServiceStatus('loading', `Render Scene #${idx + 1}`, scene.statusLabel);
+
+      try {
+        const basePrompt = `${scene.visualPrompt}. ${charAnchor} Motion direction: ${scene.veoPrompt}. Visual Art Style: ${styleObj.promptMod}. Aspect ratio ${appState.aspectRatio}. High quality, clean framing, no text, no watermarks, no captions.`;
+        const refImages = assignedChars.filter(c => c.base64).map(c => ({
+          base64: c.base64,
+          mimeType: c.mimeType || 'image/png'
+        }));
+
+        const imgRes = await generateImageUniversal(basePrompt, appState.aspectRatio, refImages, appState.imageEngine);
+        scene.imageUrl = imgRes.dataUrl;
+        scene.loadedImg = await preloadImageElement(scene.imageUrl);
+
+        if (isVideoMode) {
+          scene.statusLabel = 'Menyusun klip video AI (.WebM) gratis...';
+          renderScenesGrid();
+          const clipUrl = await synthesizeFreeAIVideoClip(scene, scene.loadedImg, appState.aspectRatio, 3600);
+          if (clipUrl) {
+            scene.videoUrl = clipUrl;
+            scene.loadedVideo = await preloadVideoElement(clipUrl);
+          }
+        } else {
+          scene.videoUrl = null;
+          scene.loadedVideo = null;
+        }
+
+        scene.videoReady = true;
+        recordServiceStatus('success', `Render Scene #${idx + 1}`, isVideoMode ? 'Video AI scene siap.' : 'Foto AI berhasil dibuat.');
+        showToast(`Scene #${idx + 1} selesai dirender!`, 'success');
+      } catch (err) {
+        recordServiceStatus('error', `Render Scene #${idx + 1}`, err.message);
+        showToast(`Gagal render Scene #${idx + 1}: ` + err.message, 'error');
+      } finally {
+        scene.isGenerating = false;
+        scene.statusLabel = '';
+        renderScenesGrid();
+      }
+    }
+
+    async function generateAllScenesBatch() {
+      if (appState.scenes.length === 0) {
+        createDefaultScenesFromTitle();
+        renderScenesGrid();
+      }
+
+      const btn = document.getElementById('batch-generate-btn');
+      btn.disabled = true;
+      showToast(`Memulai render ${appState.scenes.length} scene...`, 'info');
+
+      for (let i = 0; i < appState.scenes.length; i++) {
+        if (!appState.scenes[i].videoUrl && !appState.scenes[i].imageUrl) {
+          await generateSingleSceneMedia(i);
+        }
+      }
+
+      btn.disabled = false;
+      updateGeneratedCounter();
+      showToast('Batch generate semua scene selesai!', 'success');
+    }
+
+    function updateGeneratedCounter() {
+      const readyCount = appState.scenes.filter(s => !!(s.videoUrl || s.imageUrl)).length;
+      const badge = document.getElementById('generated-count-badge');
+      if (badge) badge.textContent = readyCount;
+    }
+
+    function openPreviewModal(idx) {
+      const scene = appState.scenes[idx];
+      if (!scene || (!scene.imageUrl && !scene.videoUrl)) return;
+      appState.modalSceneIndex = idx;
+
+      const isVideo = appState.outputMode !== 'image';
+      document.getElementById('modal-badge').textContent = scene.videoUrl ? 'AI Video Clip (.WebM)' : (isVideo ? 'Free AI Video Preview' : 'Foto AI HD');
+      document.getElementById('modal-title').textContent = `Scene #${idx + 1} — ${scene.title}`;
+
+      const img = document.getElementById('modal-image');
+      const vid = document.getElementById('modal-video');
+      const animCanvas = document.getElementById('modal-anim-canvas');
+
+      stopModalAnimationLoop();
+      img.classList.add('hidden');
+      vid.classList.add('hidden');
+      animCanvas.classList.add('hidden');
+      vid.pause();
+
+      if (scene.videoUrl) {
+        vid.src = scene.videoUrl;
+        vid.classList.remove('hidden');
+        vid.play().catch(() => {});
+      } else if (isVideo && scene.imageUrl) {
+        const dims = getAspectDimensions(appState.aspectRatio);
+        animCanvas.width = dims.w;
+        animCanvas.height = dims.h;
+        animCanvas.classList.remove('hidden');
+        startModalAnimationLoop(scene, animCanvas);
+      } else {
+        img.src = scene.imageUrl;
+        img.classList.remove('hidden');
+      }
+
+      const subOverlay = document.getElementById('modal-subtitle-overlay');
+      subOverlay.querySelector('span').textContent = scene.narration;
+      subOverlay.classList.remove('hidden');
+
+      document.getElementById('modal-prompt-text').textContent = buildGoogleFlowPrompt(scene);
+
+      document.getElementById('modal-download-img-btn').onclick = () => {
+        if (!scene.imageUrl) {
+          showToast('Scene ini berupa klip video langsung.', 'info');
+          return;
+        }
+        const safeVideo = getSanitizedVideoTitle('KontenForge');
+        downloadDataUrl(scene.imageUrl, `${safeVideo} - Scene ${idx + 1}.png`);
+      };
+      document.getElementById('modal-download-vid-btn').onclick = () => exportSingleSceneVideoClip(idx);
+
+      document.getElementById('preview-modal').classList.remove('hidden');
+    }
+
+    function startModalAnimationLoop(scene, canvas) {
+      const ctx = canvas.getContext('2d');
+      const start = performance.now();
+      const cycleMs = 4000;
+
+      async function ensureImg() {
+        if (!scene.loadedImg && scene.imageUrl) {
+          scene.loadedImg = await preloadImageElement(scene.imageUrl);
+        }
+      }
+      ensureImg();
+
+      function tick(now) {
+        const p = ((now - start) % cycleMs) / cycleMs;
+        renderSceneLayerSync(ctx, scene, p, canvas.width, canvas.height);
+        appState.modalRafId = requestAnimationFrame(tick);
+      }
+      appState.modalRafId = requestAnimationFrame(tick);
+    }
+
+    function stopModalAnimationLoop() {
+      if (appState.modalRafId) {
+        cancelAnimationFrame(appState.modalRafId);
+        appState.modalRafId = null;
+      }
+    }
+
+    function closePreviewModal() {
+      stopModalAnimationLoop();
+      const vid = document.getElementById('modal-video');
+      if (vid) vid.pause();
+      document.getElementById('preview-modal').classList.add('hidden');
+    }
+
+    async function exportSingleSceneVideoClip(idx) {
+      const scene = appState.scenes[idx];
+      if (!scene || (!scene.imageUrl && !scene.videoUrl)) return;
+
+      const safeVideo = getSanitizedVideoTitle('KontenForge');
+      if (scene.videoUrl) {
+        downloadDataUrl(scene.videoUrl, `${safeVideo} - Scene ${idx + 1}.webm`);
+        return;
+      }
+
+      showToast('Merender klip video AI (.WebM) 4 detik...', 'info');
+
+      try {
+        if (!scene.loadedImg && scene.imageUrl) {
+          scene.loadedImg = await preloadImageElement(scene.imageUrl);
+        }
+
+        const clipUrl = await synthesizeFreeAIVideoClip(scene, scene.loadedImg, appState.aspectRatio, 4000);
+        if (!clipUrl) throw new Error('Browser tidak mendukung perekaman video canvas.');
+
+        scene.videoUrl = clipUrl;
+        scene.loadedVideo = await preloadVideoElement(clipUrl);
+        renderScenesGrid();
+        downloadDataUrl(clipUrl, `${safeVideo} - Scene ${idx + 1}.webm`);
+      } catch (err) {
+        showToast('Gagal merekam klip video: ' + err.message, 'error');
+      }
+    }
+
+    function getAspectDimensions(ratio) {
+      if (ratio === '9:16') return { w: 720, h: 1280 };
+      if (ratio === '1:1') return { w: 1080, h: 1080 };
+      if (ratio === '4:5') return { w: 864, h: 1080 };
+      return { w: 1280, h: 720 };
+    }
+
+    function updateRenderSummary() {
+      const styleObj = VISUAL_STYLES.find(s => s.id === appState.selectedStyleId) || VISUAL_STYLES[0];
+      const readyCount = appState.scenes.filter(s => !!(s.videoUrl || s.imageUrl)).length;
+      const vidEngineLabels = {
+        'google-flow-free-ai': 'Google Flow + Free AI Video',
+        'pollinations-free-video': 'Free AI Video Generator',
+        'google-flow-veo': 'Google Flow Studio'
+      };
+
+      document.getElementById('summary-style-name').textContent = styleObj.name;
+      document.getElementById('summary-engine-name').textContent = vidEngineLabels[appState.videoEngine] || 'Google Flow + Free AI Video';
+      document.getElementById('summary-ratio-name').textContent = `${appState.aspectRatio} HD`;
+      document.getElementById('summary-scenes-ready').textContent = `${readyCount} / ${appState.scenes.length} Scene`;
+      document.getElementById('summary-audio-status').textContent = appState.audio.fileName ? appState.audio.fileName : 'Belum ada audio';
+    }
+
+    async function setupAssemblyCanvas() {
+      const canvas = document.getElementById('render-preview-canvas');
+      const dims = getAspectDimensions(appState.aspectRatio);
+      canvas.width = dims.w;
+      canvas.height = dims.h;
+
+      for (const scene of appState.scenes) {
+        if (scene.imageUrl && !scene.loadedImg) {
+          scene.loadedImg = await preloadImageElement(scene.imageUrl);
+        }
+        if (scene.videoUrl && !scene.loadedVideo) {
+          scene.loadedVideo = await preloadVideoElement(scene.videoUrl);
+        }
+      }
+    }
+
+    function drawEnvironmentFX(ctx, scene, progress, w, h) {
+      ctx.save();
+      const styleId = appState.selectedStyleId || '';
+      const isDarkOrMystery = styleId.includes('misteri') || styleId.includes('gelap') || styleId.includes('malam') || styleId.includes('fantasy');
+      const particleColor = isDarkOrMystery ? 'rgba(167, 243, 208, 0.38)' : 'rgba(255, 248, 220, 0.42)';
+
+      const particleCount = 24;
+      for (let i = 0; i < particleCount; i++) {
+        const seed = (i * 97 + (scene.index || 1) * 31) % 100;
+        const baseX = (seed / 100) * w;
+        const baseY = (((i * 53) % 100) / 100) * h;
+        const driftX = Math.sin(progress * Math.PI * 2 + i) * 26;
+        const driftY = -progress * (42 + (i % 4) * 16);
+        const px = (baseX + driftX + w) % w;
+        const py = (baseY + driftY + h) % h;
+        const radius = 1.5 + (i % 3) * 1.1;
+
+        ctx.fillStyle = particleColor;
+        ctx.beginPath();
+        ctx.arc(px, py, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const beamX = w * (0.2 + progress * 0.6);
+      const grad = ctx.createRadialGradient(beamX, h * 0.1, 10, beamX, h * 0.1, w * 0.55);
+      grad.addColorStop(0, 'rgba(255, 250, 230, 0.10)');
+      grad.addColorStop(1, 'rgba(255, 250, 230, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+    }
+
+    function renderSceneLayerSync(ctx, scene, progress, w, h) {
+      ctx.fillStyle = '#070d0c';
+      ctx.fillRect(0, 0, w, h);
+
+      if (scene.loadedVideo && scene.loadedVideo.readyState >= 2) {
+        if (scene.loadedVideo.paused) {
+          scene.loadedVideo.play().catch(() => {});
+        }
+        ctx.drawImage(scene.loadedVideo, 0, 0, w, h);
+      } else if (scene.loadedImg) {
+        let scale = 1.03;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        if (scene.cameraMove === 'zoom-in') {
+          scale = 1.0 + progress * 0.08;
+        } else if (scene.cameraMove === 'push') {
+          scale = 1.02 + progress * 0.10;
+          offsetY = -progress * 14;
+        } else if (scene.cameraMove === 'pan-right') {
+          scale = 1.08;
+          offsetX = (progress - 0.5) * (w * 0.05);
+        } else if (scene.cameraMove === 'orbit') {
+          scale = 1.06;
+          offsetX = Math.sin(progress * Math.PI * 2) * 18;
+          offsetY = Math.cos(progress * Math.PI * 2) * 10;
+        }
+
+        const motionPulse = Math.sin(progress * Math.PI * 3) * 3;
+        const drawW = w * scale;
+        const drawH = h * scale;
+        const dx = (w - drawW) / 2 + offsetX;
+        const dy = (h - drawH) / 2 + offsetY + motionPulse;
+
+        ctx.drawImage(scene.loadedImg, dx, dy, drawW, drawH);
+        drawEnvironmentFX(ctx, scene, progress, w, h);
+      } else {
+        const grad = ctx.createLinearGradient(0, 0, w, h);
+        grad.addColorStop(0, '#0d1715');
+        grad.addColorStop(1, '#064e3b');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.fillStyle = '#34d399';
+        ctx.font = `700 ${Math.round(w * 0.032)}px Inter, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`Scene #${scene.index}: ${scene.title}`, w / 2, h * 0.42);
+      }
+    }
+
+    function startSceneCardsAnimationLoop() {
+      stopSceneCardsAnimationLoop();
+      const start = performance.now();
+      const cycleMs = 4000;
+
+      function tick(now) {
+        if (appState.currentStep !== 3) return;
+        const p = ((now - start) % cycleMs) / cycleMs;
+
+        appState.scenes.forEach((scene, idx) => {
+          const canvas = document.getElementById(`scene-card-canvas-${idx}`);
+          if (!canvas) return;
+          if (!scene.loadedImg && scene.imageUrl && !scene._loadingImg) {
+            scene._loadingImg = true;
+            preloadImageElement(scene.imageUrl).then(img => {
+              scene.loadedImg = img;
+              scene._loadingImg = false;
+            });
+          }
+          if (!scene.loadedVideo && scene.videoUrl && !scene._loadingVid) {
+            scene._loadingVid = true;
+            preloadVideoElement(scene.videoUrl).then(vid => {
+              scene.loadedVideo = vid;
+              scene._loadingVid = false;
+            });
+          }
+          const ctx = canvas.getContext('2d');
+          renderSceneLayerSync(ctx, scene, p, canvas.width, canvas.height);
+        });
+
+        appState.sceneCardsRafId = requestAnimationFrame(tick);
+      }
+
+      appState.sceneCardsRafId = requestAnimationFrame(tick);
+    }
+
+    function stopSceneCardsAnimationLoop() {
+      if (appState.sceneCardsRafId) {
+        cancelAnimationFrame(appState.sceneCardsRafId);
+        appState.sceneCardsRafId = null;
+      }
+    }
+
+    function drawWrappedSubtitle(ctx, text, canvasW, canvasH) {
+      if (!text) return;
+      const fontSize = Math.round(canvasW * 0.028);
+      ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+
+      const maxWidth = canvasW * 0.84;
+      const words = text.split(' ');
+      const lines = [];
+      let currentLine = '';
+
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        if (ctx.measureText(testLine).width > maxWidth) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+
+      const displayLines = lines.slice(0, 3);
+      const lineHeight = fontSize * 1.35;
+      const boxHeight = displayLines.length * lineHeight + 24;
+      const boxY = canvasH - boxHeight - Math.round(canvasH * 0.06);
+
+      ctx.fillStyle = 'rgba(7, 13, 12, 0.78)';
+      ctx.beginPath();
+      ctx.roundRect(canvasW * 0.06, boxY, canvasW * 0.88, boxHeight, 14);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      displayLines.forEach((line, i) => {
+        ctx.fillText(line, canvasW / 2, boxY + 20 + fontSize * 0.85 + i * lineHeight);
+      });
+    }
+
+    function drawAssemblyFrame(sceneIdx, progress = 0.2) {
+      const canvas = document.getElementById('render-preview-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const scene = appState.scenes[sceneIdx] || appState.scenes[0];
+      if (!scene) return;
+
+      const label = document.getElementById('assembly-progress-label');
+      if (label) label.textContent = `Scene ${sceneIdx + 1} / ${appState.scenes.length}`;
+
+      renderSceneLayerSync(ctx, scene, progress, canvas.width, canvas.height);
+
+      if (document.getElementById('toggle-subtitles-chk')?.checked) {
+        drawWrappedSubtitle(ctx, scene.narration, canvas.width, canvas.height);
+      }
+    }
+
+    async function togglePlayAssembly() {
+      if (appState.isPlayingAssembly) {
+        stopAssembly();
+        return;
+      }
+      await setupAssemblyCanvas();
+      appState.isPlayingAssembly = true;
+      appState.assemblyStartTime = performance.now();
+
+      const btn = document.getElementById('play-assembly-btn');
+      btn.innerHTML = `<i data-lucide="pause" class="w-4 h-4"></i> <span>Jeda Preview</span>`;
+      lucide.createIcons();
+
+      if (appState.audio.url) {
+        const player = document.getElementById('voiceover-audio-player');
+        player.currentTime = 0;
+        player.play().catch(() => {});
+      }
+
+      const msPerScene = 3400;
+      const totalScenes = appState.scenes.length;
+
+      function loop(now) {
+        if (!appState.isPlayingAssembly) return;
+        const elapsed = now - appState.assemblyStartTime;
+        const totalDuration = totalScenes * msPerScene;
+
+        if (elapsed >= totalDuration) {
+          stopAssembly();
+          return;
+        }
+
+        const sceneIdx = Math.min(totalScenes - 1, Math.floor(elapsed / msPerScene));
+        const progress = (elapsed % msPerScene) / msPerScene;
+        drawAssemblyFrame(sceneIdx, progress);
+
+        appState.assemblyRafId = requestAnimationFrame(loop);
+      }
+
+      appState.assemblyRafId = requestAnimationFrame(loop);
+    }
+
+    function stopAssembly() {
+      appState.isPlayingAssembly = false;
+      if (appState.assemblyRafId) {
+        cancelAnimationFrame(appState.assemblyRafId);
+        appState.assemblyRafId = null;
+      }
+      const btn = document.getElementById('play-assembly-btn');
+      if (btn) {
+        btn.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i> <span>Putar Preview</span>`;
+        lucide.createIcons();
+      }
+      const player = document.getElementById('voiceover-audio-player');
+      if (player) player.pause();
+    }
+
+    async function renderFinalVideoFile() {
+      const btn = document.getElementById('render-final-video-btn');
+      const progWrap = document.getElementById('render-progress-wrapper');
+      const progBar = document.getElementById('render-progress-bar');
+      const progText = document.getElementById('render-percent-text');
+      const statusText = document.getElementById('render-status-text');
+
+      btn.disabled = true;
+      progWrap.classList.remove('hidden');
+      stopAssembly();
+
+      let audioCtx = null;
+      let audioSourceNode = null;
+
+      try {
+        const mimeType = getSupportedRecorderMimeType();
+        if (!mimeType || typeof MediaRecorder === 'undefined') {
+          throw new Error('Browser Anda tidak mendukung perekaman video MediaRecorder.');
+        }
+
+        statusText.textContent = 'Menyiapkan aset video AI & audio bebas kedip...';
+        await setupAssemblyCanvas();
+
+        const canvas = document.getElementById('render-preview-canvas');
+        const canvasStream = canvas.captureStream(30);
+        const tracks = [...canvasStream.getVideoTracks()];
+
+        if (appState.audio.url) {
+          try {
+            const audioResp = await fetch(appState.audio.url);
+            const arrayBuf = await audioResp.arrayBuffer();
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const decodedAudio = await audioCtx.decodeAudioData(arrayBuf);
+            const dest = audioCtx.createMediaStreamDestination();
+            audioSourceNode = audioCtx.createBufferSource();
+            audioSourceNode.buffer = decodedAudio;
+            audioSourceNode.connect(dest);
+            audioSourceNode.start(0);
+            tracks.push(...dest.stream.getAudioTracks());
+          } catch (_) {
+            // Lanjutkan render video meskipun audio gagal digabung
+          }
+        }
+
+        const combinedStream = new MediaStream(tracks);
+        const recorder = new MediaRecorder(combinedStream, { mimeType });
+        const chunks = [];
+        recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+
+        recorder.start();
+        const totalScenes = appState.scenes.length;
+        const msPerScene = 3200;
+
+        for (let sIdx = 0; sIdx < totalScenes; sIdx++) {
+          statusText.textContent = `Merender video AI Scene ${sIdx + 1} dari ${totalScenes}...`;
+          const start = performance.now();
+          await new Promise(resolve => {
+            function frame(now) {
+              const elapsed = now - start;
+              const p = Math.min(1, elapsed / msPerScene);
+              const overallPct = Math.round(((sIdx + p) / totalScenes) * 100);
+              progBar.style.width = `${overallPct}%`;
+              progText.textContent = `${overallPct}%`;
+
+              drawAssemblyFrame(sIdx, p);
+              if (p < 1) {
+                requestAnimationFrame(frame);
+              } else {
+                resolve();
+              }
+            }
+            requestAnimationFrame(frame);
+          });
+        }
+
+        if (audioSourceNode) {
+          try { audioSourceNode.stop(); } catch (_) {}
+        }
+        if (audioCtx) {
+          try { await audioCtx.close(); } catch (_) {}
+        }
+
+        recorder.stop();
+        await new Promise(res => { recorder.onstop = res; });
+
+        const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+        const blob = new Blob(chunks, { type: mimeType.split(';')[0] || `video/${ext}` });
+        const url = URL.createObjectURL(blob);
+        const videoTitle = getSanitizedVideoTitle('Video_KontenForge');
+        downloadDataUrl(url, `${videoTitle}.${ext}`);
+        statusText.textContent = 'Render selesai! Video mulus bebas kedip berhasil diunduh.';
+        showToast('Video lengkap berhasil dirender & diunduh!', 'success');
+      } catch (err) {
+        showToast('Gagal merender video: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function exportProjectJSON() {
+      const styleObj = VISUAL_STYLES.find(s => s.id === appState.selectedStyleId) || VISUAL_STYLES[0];
+      const videoTitle = getSanitizedVideoTitle('KontenForge_Project');
+      const payload = {
+        app: 'KontenForge V2 — Google Flow & Free AI Video Studio',
+        title: document.getElementById('raw-title-input')?.value?.trim() || '',
+        outputMode: appState.outputMode,
+        videoEngine: appState.videoEngine,
+        imageEngine: appState.imageEngine,
+        aspectRatio: appState.aspectRatio,
+        visualStyle: styleObj.name,
+        characters: appState.characters.map(({ id, name, role }) => ({ id, name, role })),
+        script: document.getElementById('script-editor-textarea')?.value || appState.scriptText,
+        scenes: appState.scenes.map(({ id, index, title, narration, visualPrompt, veoPrompt, cameraMove, characterIds }) => ({
+          id,
+          index,
+          title,
+          narration,
+          visualPrompt,
+          veoPrompt,
+          googleFlowPrompt: buildGoogleFlowPrompt({ title, narration, visualPrompt, veoPrompt, cameraMove, characterIds }),
+          cameraMove,
+          characterIds
+        }))
+      };
+
+      const jsonStr = JSON.stringify(payload, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      downloadDataUrl(url, `${videoTitle} - Naskah & Prompt.json`);
+    }
+
+    function openStudioDrawer() {
+      const list = document.getElementById('drawer-gallery-list');
+      const readyScenes = appState.scenes.filter(s => !!(s.videoUrl || s.imageUrl));
+      const safeVideo = getSanitizedVideoTitle('KontenForge');
+
+      if (readyScenes.length === 0) {
+        list.innerHTML = `
+          <div class="text-center py-12 px-4">
+            <i data-lucide="image-off" class="w-10 h-10 text-gray-600 mx-auto mb-2"></i>
+            <p class="text-xs text-gray-400">Belum ada foto atau video AI yang dihasilkan. Masuk ke Langkah 3 untuk mulai generate!</p>
+          </div>
+        `;
+      } else {
+        list.innerHTML = readyScenes.map((s) => `
+          <div class="bg-forge-bg border border-forge-border rounded-xl p-3 space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-white">Scene #${s.index} • ${s.title}</span>
+              <span class="text-[10px] text-emerald-400 font-mono">${s.videoUrl ? 'AI VIDEO' : (appState.outputMode === 'image' ? 'PNG' : 'VIDEO AI')}</span>
+            </div>
+            ${s.videoUrl
+              ? `<video src="${s.videoUrl}" autoplay loop muted playsinline class="w-full rounded-lg border border-forge-border object-cover aspect-video"></video>`
+              : `<img src="${s.imageUrl}" class="w-full rounded-lg border border-forge-border object-cover aspect-video" />`
+            }
+            <div class="flex gap-2">
+              ${s.imageUrl ? `
+                <button type="button" onclick="downloadDataUrl('${s.imageUrl}', '${safeVideo.replace(/'/g, '')} - Scene ${s.index}.png')" class="flex-1 py-1.5 rounded-lg bg-forge-card hover:bg-forge-cardHover border border-forge-border text-[11px] font-semibold text-gray-200">
+                  Unduh Foto
+                </button>
+              ` : ''}
+              <button type="button" onclick="exportSingleSceneVideoClip(${appState.scenes.indexOf(s)})" class="flex-1 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-[11px] font-bold text-white">
+                Unduh Klip Video
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('studio-drawer').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeStudioDrawer() {
+      document.getElementById('studio-drawer').classList.add('hidden');
+    }
+
+    function resetProject() {
+      stopAssembly();
+      stopSceneCardsAnimationLoop();
+      stopModalAnimationLoop();
+      appState.scenes = [];
+      appState.scriptText = '';
+      appState.audio = { url: null, fileName: null };
+      appState.characters = [
+        {
+          id: 'char-1',
+          name: '',
+          role: '',
+          imageUrl: null,
+          base64: null,
+          mimeType: 'image/png',
+          isGenerating: false
+        }
+      ];
+      document.getElementById('script-editor-textarea').value = '';
+      document.getElementById('audio-player-box').classList.add('hidden');
+      renderCharactersList();
+      updateGeneratedCounter();
+      goToStep(1);
+      showToast('Project baru siap dimulai!', 'info');
+    }
+  </script>
+</body>
+</html>
