@@ -731,7 +731,116 @@
       }
     })();
 
-    const apiKey = "";
+    // API Key bisa diisi lewat localStorage (KontenForge_APIKey) atau window.KONTENFORGE_API_KEY.
+    // Jika kosong, aplikasi otomatis memakai mode gratis (tanpa key).
+    const apiKey = (typeof window !== 'undefined' && (window.KONTENFORGE_API_KEY || localStorage.getItem('KontenForge_APIKey'))) || "";
+
+    function isFreeMode() { return !apiKey; }
+
+    // Render visual generatif di canvas berdasarkan hash prompt — hasil unik & konsisten per scene.
+    function drawGenerativeVisual(ctx, seedStr, w, h) {
+      let seed = 0;
+      for (let i = 0; i < seedStr.length; i++) { seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0; }
+      const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+
+      const hueA = Math.floor(rand() * 360);
+      const hueB = (hueA + 60 + Math.floor(rand() * 160)) % 360;
+      const grad = ctx.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, `hsl(${hueA}, 55%, 16%)`);
+      grad.addColorStop(0.55, `hsl(${Math.floor((hueA + hueB) / 2)}, 50%, 10%)`);
+      grad.addColorStop(1, `hsl(${hueB}, 60%, 18%)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // "Matahari"/cahaya utama
+      const sunX = w * (0.15 + rand() * 0.7);
+      const sunY = h * (0.15 + rand() * 0.4);
+      const sunR = Math.min(w, h) * (0.12 + rand() * 0.12);
+      const glow = ctx.createRadialGradient(sunX, sunY, sunR * 0.1, sunX, sunY, sunR * 3);
+      glow.addColorStop(0, `hsla(${hueB}, 90%, 70%, 0.85)`);
+      glow.addColorStop(1, 'hsla(0, 0%, 0%, 0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, w, h);
+
+      // Lapisan "pegunungan" siluet
+      const layers = 3;
+      for (let l = 0; l < layers; l++) {
+        const baseY = h * (0.55 + l * 0.14);
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        ctx.lineTo(0, baseY);
+        const peaks = 4 + Math.floor(rand() * 5);
+        for (let pIdx = 0; pIdx <= peaks; pIdx++) {
+          const px = (w / peaks) * pIdx;
+          const py = baseY - rand() * h * 0.18;
+          ctx.lineTo(px, py);
+        }
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fillStyle = `hsla(${hueA}, 45%, ${9 - l * 2}%, 0.9)`;
+        ctx.fill();
+      }
+
+      // Partikel cahaya
+      const dots = 40 + Math.floor(rand() * 40);
+      for (let d = 0; d < dots; d++) {
+        const dx = rand() * w;
+        const dy = rand() * h * 0.8;
+        const r = rand() * 2.2 + 0.4;
+        ctx.beginPath();
+        ctx.arc(dx, dy, r, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${hueB}, 85%, 78%, ${0.15 + rand() * 0.5})`;
+        ctx.fill();
+      }
+
+      // Vignette sinematik
+      const vig = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
+      vig.addColorStop(0, 'rgba(0,0,0,0)');
+      vig.addColorStop(1, 'rgba(0,0,0,0.55)');
+      ctx.fillStyle = vig;
+      ctx.fillRect(0, 0, w, h);
+    }
+
+    // Gambar AI gratis via Pollinations.ai (tanpa API key), dengan timeout.
+    async function fetchPollinationsImage(promptText, aspectRatio) {
+      const ratioParam = aspectRatio === '9:16' ? '720x1280'
+        : aspectRatio === '1:1' ? '1024x1024'
+        : aspectRatio === '4:5' ? '864x1080'
+        : '1280x720';
+      let seedNum = 0;
+      for (let i = 0; i < promptText.length; i++) { seedNum = (seedNum * 33 + promptText.charCodeAt(i)) >>> 0; }
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptText.slice(0, 600))}?width=${ratioParam.split('x')[0]}&height=${ratioParam.split('x')[1]}&nologo=true&seed=${seedNum % 100000}`;
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 25000);
+      try {
+        const resp = await fetch(url, { signal: controller.signal });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const blob = await resp.blob();
+        if (!blob.size) throw new Error('Gambar kosong.');
+        const mimeType = blob.type.startsWith('image/') ? blob.type : 'image/jpeg';
+        const dataUrl = await new Promise((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(fr.result);
+          fr.onerror = reject;
+          fr.readAsDataURL(blob);
+        });
+        return { base64: dataUrl.split(',')[1], mimeType, dataUrl };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    // Placeholder prosedural berbasis canvas — selalu berhasil tanpa internet/API key.
+    function generateProceduralImageDataUrl(promptText, aspectRatio) {
+      const dims = getAspectDimensions(aspectRatio);
+      const canvas = document.createElement('canvas');
+      canvas.width = dims.w;
+      canvas.height = dims.h;
+      const ctx = canvas.getContext('2d');
+      drawGenerativeVisual(ctx, promptText || 'kontenforge', dims.w, dims.h);
+      return canvas.toDataURL('image/jpeg', 0.92);
+    }
 
     async function fetchWithBackoff(url, options, maxRetries = 3) {
       let delay = 1000;
@@ -757,6 +866,11 @@
     }
 
     async function generateTextWithFallback(payload) {
+      if (isFreeMode()) {
+        // Mode gratis tanpa API key: hasil simulasi lokal dikembalikan dengan format yang sama.
+        showToast('Mode gratis aktif: naskah dibuat oleh generator lokal (tanpa API key).', 'info');
+        return localScriptSimulation(payload);
+      }
       const textModels = ['gemini-3-flash-preview', 'gemini-2.5-flash'];
       let lastErr = null;
       for (const model of textModels) {
@@ -825,6 +939,17 @@
       const candidateModels = preferredModel === 'gemini-3.1-flash-lite-image' && refsArray.length === 0
         ? ['gemini-3.1-flash-lite-image', 'gemini-3.1-flash-image']
         : ['gemini-3.1-flash-image', 'gemini-3.1-flash-lite-image'];
+
+      if (isFreeMode()) {
+        // Mode gratis: coba gambar AI via Pollinations.ai (tanpa API key), lalu fallback prosedural canvas.
+        try {
+          return await fetchPollinationsImage(promptText, aspectRatio);
+        } catch (err) {
+          recordServiceStatus('info', 'Foto AI Gratis', `Pollinations gagal (${err.message}), memakai visual generatif lokal.`);
+          const dataUrl = generateProceduralImageDataUrl(promptText, aspectRatio);
+          return { base64: dataUrl.split(',')[1], mimeType: 'image/jpeg', dataUrl };
+        }
+      }
 
       let lastErr = null;
       for (const model of candidateModels) {
@@ -1690,6 +1815,171 @@
       updateDurationEstimate();
     }
 
+
+    // ==================== MODE GRATIS (tanpa API Key) ====================
+
+    function seededRand(seedStr) {
+      let seed = 2166136261 >>> 0;
+      for (let i = 0; i < seedStr.length; i++) { seed = ((seed ^ seedStr.charCodeAt(i)) * 16777619) >>> 0; }
+      return () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    }
+
+    function extractPromptText(payload) {
+      try {
+        const parts = payload?.contents?.[0]?.parts || [];
+        return parts.map(p => p.text || '').join('\n');
+      } catch (_) { return ''; }
+    }
+
+    function localScriptSimulation(payload) {
+      const promptText = extractPromptText(payload);
+      const titleMatch = promptText.match(/judul:\s*"([^"]+)"/i) || promptText.match(/Judul mentah:\s*"([^"]+)"/i);
+      const countMatches = [...promptText.matchAll(/(\d+)\s*(?:scene|adegan)/gi)];
+      const sceneCount = countMatches.length ? Math.max(...countMatches.map(m => parseInt(m[1], 10))) : 7;
+      const isTitleTask = /HANYA 1 baris teks judul/i.test(promptText);
+      const title = titleMatch ? titleMatch[1].trim() : 'Kisah Menarik Hari Ini';
+      const rand = seededRand(title + promptText.length);
+
+      const hooks = [
+        `Pernahkah kamu membayangkan bagaimana "${title}" benar-benar mengubah cara kita melihat dunia?`,
+        `Di balik ${title}, ada cerita yang jarang dibahas orang — dan semuanya dimulai dari satu momen kecil.`,
+        `Apa yang terjadi ketika ${title} bertemu dengan kenyataan? Jawabannya bikin merinding.`
+      ];
+      const connectors = [
+        'Menariknya, bukti yang tersisa menunjukkan hal yang tidak terduga.',
+        'Dari sinilah kisahnya mulai menjadi jauh lebih rumit.',
+        'Tapi ada satu detail penting yang sering terlewatkan banyak orang.'
+      ];
+      const outros = [
+        'Pada akhirnya, kisah ini mengingatkan kita bahwa sejarah selalu punya dua sisi.',
+        'Sampai di sini, jelas bahwa masa lalu meninggalkan pelajaran besar untuk hari ini.',
+        'Kalau kamu simak sampai titik ini, kamu paham kenapa topik ini layak diingat terus.'
+      ];
+      const camMoves = ['zoom-in', 'pan-right', 'orbit', 'push'];
+
+      if (isTitleTask) {
+        const variants = [
+          `${title}: Fakta yang Jarang Orang Sadar`,
+          `Di Balik ${title} — Sisi Gelap yang Tak Dibuku`,
+          `${title}: Misteri yang Baru Terpecahkan Belakangan Ini`,
+          `Kenapa ${title} Bisa Mengubah Segalanya?`,
+          `${title}, Kisah Nyata yang Lebih Gila dari Fiksi`
+        ];
+        const improved = variants[Math.floor(rand() * variants.length)];
+        return { candidates: [{ content: { parts: [{ text: improved }] } }] };
+      }
+
+      const scenes = [];
+      let scriptParts = [hooks[Math.floor(rand() * hooks.length)]];
+      for (let i = 0; i < sceneCount; i++) {
+        const isFirst = i === 0;
+        const isLast = i === sceneCount - 1;
+        const sceneTitle = isFirst ? 'Hook Pembuka'
+          : isLast ? 'Kesimpulan & Refleksi'
+          : `Bagian ${i}: ${title}`;
+        const narration = isFirst ? hooks[Math.floor(rand() * hooks.length)]
+          : isLast ? outros[Math.floor(rand() * outros.length)]
+          : `${connectors[Math.floor(rand() * connectors.length)]} Pada tahap ini, ${title} memperlihatkan sisi yang paling menarik: dampak nyata bagi kehidupan orang-orang di zamannya, yang jejaknya masih bisa kita rasakan sampai sekarang.`;
+        scriptParts.push(narration);
+        scenes.push({
+          sceneTitle,
+          narration,
+          visualPrompt: `Cinematic illustration of "${title}", scene ${i + 1}, dramatic atmospheric lighting, rich storytelling composition, highly detailed environment`,
+          veoPrompt: 'Character gestures expressively while talking, wind blowing through hair and environment, glowing atmospheric particles, 24fps',
+          cameraMove: camMoves[Math.floor(rand() * camMoves.length)],
+          characterIds: []
+        });
+      }
+
+      const json = {
+        fullScript: scriptParts.join('\n\n'),
+        scenes
+      };
+      return { candidates: [{ content: { parts: [{ text: JSON.stringify(json) } ] } }] };
+    }
+
+    let liveNarrationRafId = null;
+
+    function speakLiveNarration(text, voice) {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance((text || '').slice(0, 2500));
+      utterance.lang = 'id-ID';
+      utterance.rate = 0.98;
+      utterance.pitch = 1.0;
+      if (voice) utterance.voice = voice;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function startLiveNarrationLoop() {
+      stopLiveNarrationLoop();
+      const msPerScene = 3400;
+      const scenes = appState.scenes;
+      let idx = 0;
+      const speakCurrent = () => {
+        if (idx >= scenes.length) { liveNarrationRafId = null; return; }
+        const s = scenes[idx];
+        if (s.narration) speakLiveNarration(s.narration, appState.audio.liveVoice);
+        idx++;
+        liveNarrationRafId = setTimeout(speakCurrent, msPerScene);
+      };
+      speakCurrent();
+    }
+
+    function stopLiveNarrationLoop() {
+      if (liveNarrationRafId) { clearTimeout(liveNarrationRafId); liveNarrationRafId = null; }
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    }
+
+    async function generateTTSFreeMode(script, voiceName, btn, origHtml) {
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Membuat suara AI gratis...</span>`;
+      lucide.createIcons();
+      recordServiceStatus('loading', 'Voiceover TTS', 'Menggunakan Web Speech API (gratis)...');
+
+      try {
+        if (!('speechSynthesis' in window)) {
+          throw new Error('Browser tidak mendukung Web Speech API.');
+        }
+
+        const voices = window.speechSynthesis.getVoices();
+        const idVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('id')) || voices[0] || null;
+
+        // Uji bicara singkat untuk memastikan engine TTS browser berfungsi.
+        await new Promise((resolve, reject) => {
+          const test = new SpeechSynthesisUtterance('Tes.');
+          if (idVoice) test.voice = idVoice;
+          test.onend = resolve;
+          test.onerror = (e) => reject(new Error(e.error || 'Speech synthesis gagal.'));
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(test);
+          setTimeout(resolve, 4000);
+        });
+
+        appState.audio = { url: null, fileName: `Narasi_Langsung_${voiceName}`, liveNarration: script.slice(0, 2500), liveVoice: idVoice };
+
+        const player = document.getElementById('voiceover-audio-player');
+        if (player) { player.removeAttribute('src'); player.load(); }
+        const label = document.getElementById('audio-file-label');
+        if (label) label.textContent = `Narasi aktif: suara ${voiceName} (langsung via browser, mode gratis)`;
+        const playerBox = document.getElementById('audio-player-box');
+        if (playerBox) playerBox.classList.remove('hidden');
+
+        // Putar pratinjau narasi langsung sekali sebagai konfirmasi hasil.
+        speakLiveNarration(script.slice(0, 400), idVoice);
+
+        recordServiceStatus('success', 'Voiceover TTS', 'Narasi suara langsung siap diputar bersama video.');
+        showToast('Voiceover gratis berhasil dibuat! Suara akan dibacakan otomatis saat preview & render.', 'success');
+      } catch (err) {
+        recordServiceStatus('error', 'Voiceover TTS', err.message);
+        showToast('Gagal membuat suara AI: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        lucide.createIcons();
+      }
+    }
+
     function getSceneCountForDuration(mins) {
       const map = { 1: 3, 3: 5, 5: 7, 8: 8, 10: 9, 15: 10, 20: 11, 30: 12 };
       return map[mins] || 7;
@@ -1945,6 +2235,11 @@ Nilai "characterIds" berisi array ID karakter dari daftar di atas yang muncul di
       btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Merender suara AI...</span>`;
       lucide.createIcons();
       recordServiceStatus('loading', 'Voiceover TTS', `Membuat suara ${voiceName}...`);
+
+      if (isFreeMode()) {
+        await generateTTSFreeMode(script, voiceName, btn, origHtml);
+        return;
+      }
 
       try {
         const stylePrompt = extraStyle ? `${tone}, ${extraStyle}` : tone;
@@ -2769,6 +3064,8 @@ Nilai "characterIds" berisi array ID karakter dari daftar di atas yang muncul di
         const player = document.getElementById('voiceover-audio-player');
         player.currentTime = 0;
         player.play().catch(() => {});
+      } else if (appState.audio.liveNarration) {
+        startLiveNarrationLoop();
       }
 
       const msPerScene = 3400;
@@ -2805,6 +3102,7 @@ Nilai "characterIds" berisi array ID karakter dari daftar di atas yang muncul di
         btn.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i> <span>Putar Preview</span>`;
         lucide.createIcons();
       }
+      stopLiveNarrationLoop();
       const player = document.getElementById('voiceover-audio-player');
       if (player) player.pause();
     }
@@ -2851,6 +3149,9 @@ Nilai "characterIds" berisi array ID karakter dari daftar di atas yang muncul di
           } catch (_) {
             // Lanjutkan render video meskipun audio gagal digabung
           }
+        } else if (appState.audio.liveNarration) {
+          // Mode gratis: bacakan narasi per scene secara langsung selama proses render.
+          startLiveNarrationLoop();
         }
 
         const combinedStream = new MediaStream(tracks);
